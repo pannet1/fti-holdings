@@ -93,7 +93,7 @@ def generate_signals(row):
             (row['perc_chng'] < -1 * row['martingale']) &
             (row['ltp'] < df['200_ma']), 'signal'
         ] = row['martingale']
-        """ below ma200 wait for sell sooner % """
+        """ below ma200 wait for sell fibo % """
         df.loc[
             (row['trade_type'] == 'buy') &
             (df['open'] > df['12_ma']) &
@@ -101,12 +101,13 @@ def generate_signals(row):
             (row['perc_chng'] > row['fibo']) &
             (row['ltp'] < df['200_ma']), 'signal'
         ] = row['quantity'] * -1
+        """ above ma200 for sell at martingale % """
         df.loc[
             (row['trade_type'] == 'buy') &
             (df['open'] > df['12_ma']) &
             (df['close'] < df['12_ma']) &
             (row['perc_chng'] > row['martingale']) &
-            (row['ltp'] < df['200_ma']), 'signal'
+            (row['ltp'] > df['200_ma']), 'signal'
         ] = row['quantity'] * -1
         print(df.tail())
         sleep(secs)

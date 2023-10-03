@@ -1,0 +1,72 @@
+key,Company Name,Industry,Symbol,ltp,token
+NSE:EXIDEIND,Exide Industries Ltd.,Automobile and Auto Components,EXIDEIND,260.6,173057
+NSE:JAMNAAUTO,Jamna Auto Industries Ltd.,Automobile and Auto Components,JAMNAAUTO,116.95,5319169
+NSE:FINPIPE,Finolex Industries Ltd.,Capital Goods,FINPIPE,224.0,266497
+NSE:SUZLON,Suzlon Energy Ltd.,Capital Goods,SUZLON,25.8,3076609
+NSE:EPL,EPL Ltd.,Capital Goods,EPL,186.7,251137
+NSE:LXCHEM,Laxmi Organic Industries Ltd.,Chemicals,LXCHEM,278.8,727297
+NSE:CHAMBLFERT,Chambal Fertilizers & Chemicals Ltd.,Chemicals,CHAMBLFERT,276.85,163073
+NSE:GSFC,Gujarat State Fertilizers & Chemicals Ltd.,Chemicals,GSFC,173.45,319233
+NSE:PCBL,PCBL Ltd.,Chemicals,PCBL,168.75,678145
+NSE:RAIN,Rain Industries Ltd,Chemicals,RAIN,163.95,3926273
+NSE:RALLIS,Rallis India Ltd.,Chemicals,RALLIS,209.3,720897
+NSE:RCF,Rashtriya Chemicals & Fertilizers Ltd.,Chemicals,RCF,126.45,733697
+NSE:NBCC,NBCC (India) Ltd.,Construction,NBCC,58.5,8042241
+NSE:IRB,IRB Infrastructure Developers Ltd.,Construction,IRB,31.6,3920129
+NSE:ENGINERSIN,Engineers India Ltd.,Construction,ENGINERSIN,147.45,1256193
+NSE:IRCON,IRCON International Ltd.,Construction,IRCON,144.85,1276417
+NSE:NCC,NCC Ltd.,Construction,NCC,155.05,593665
+NSE:KNRCON,KNR Constructions Ltd.,Construction,KNRCON,284.0,3912449
+NSE:PRSMJOHNSN,Prism Johnson Ltd.,Construction Materials,PRSMJOHNSN,131.0,701185
+NSE:INDIACEM,India Cements Ltd.,Construction Materials,INDIACEM,233.2,387841
+NSE:CAMPUS,Campus Activewear Ltd.,Consumer Durables,CAMPUS,288.7,2396673
+NSE:ORIENTELEC,Orient Electric Ltd.,Consumer Durables,ORIENTELEC,221.85,760833
+NSE:KALYANKJIL,Kalyan Jewellers India Ltd.,Consumer Durables,KALYANKJIL,227.55,756481
+NSE:LEMONTREE,Lemon Tree Hotels Ltd.,Consumer Services,LEMONTREE,113.75,667137
+NSE:BLS,BLS International Services Ltd.,Consumer Services,BLS,250.1,4423425
+NSE:DELTACORP,Delta Corp Ltd.,Consumer Services,DELTACORP,142.7,3851265
+NSE:EIHOTEL,EIH Ltd.,Consumer Services,EIHOTEL,223.05,235265
+NSE:EASEMYTRIP,Easy Trip Planners Ltd.,Consumer Services,EASEMYTRIP,40.55,714753
+NSE:RBA,Restaurant Brands Asia Ltd.,Consumer Services,RBA,124.7,382465
+NSE:RENUKA,Shree Renuka Sugars Ltd.,Fast Moving Consumer Goods,RENUKA,54.6,3078657
+NSE:CENTRALBK,Central Bank of India,Financial Services,CENTRALBK,51.3,3812865
+NSE:CUB,City Union Bank Ltd.,Financial Services,CUB,126.7,1459457
+NSE:MANAPPURAM,Manappuram Finance Ltd.,Financial Services,MANAPPURAM,149.85,4879617
+NSE:HUDCO,Housing & Urban Development Corporation Ltd.,Financial Services,HUDCO,91.8,5331201
+NSE:RBLBANK,RBL Bank Ltd.,Financial Services,RBLBANK,252.75,4708097
+NSE:IDBI,IDBI Bank Ltd.,Financial Services,IDBI,70.75,377857
+NSE:EQUITASBNK,Equitas Small Finance Bank Ltd.,Financial Services,EQUITASBNK,89.65,233729
+NSE:KARURVYSYA,Karur Vysya Bank Ltd.,Financial Services,KARURVYSYA,133.8,470529
+NSE:UJJIVANSFB,Ujjivan Small Finance Bank Ltd.,Financial Services,UJJIVANSFB,54.1,3898369
+NSE:UCOBANK,UCO Bank,Financial Services,UCOBANK,43.55,2873089
+NSE:JMFINANCIL,JM Financial Ltd.,Financial Services,JMFINANCIL,86.35,3491073
+NSE:IOB,Indian Overseas Bank,Financial Services,IOB,46.75,2393089
+NSE:IEX,Indian Energy Exchange Ltd.,Financial Services,IEX,132.2,56321
+NSE:IBULHSGFIN,Indiabulls Housing Finance Ltd.,Financial Services,IBULHSGFIN,185.5,7712001
+NSE:IDFC,IDFC Ltd.,Financial Services,IDFC,128.85,3060993
+NSE:APTUS,Aptus Value Housing Finance India Ltd.,Financial Services,APTUS,292.4,1391361
+NSE:SPARC,Sun Pharma Advanced Research Company Ltd.,Healthcare,SPARC,233.1,3785729
+NSE:PPLPHARMA,Piramal Pharma Ltd.,Healthcare,PPLPHARMA,102.05,2962177
+NSE:NETWORK18,Network18 Media & Investments Ltd.,Media Entertainment & Publication,NETWORK18,63.85,3612417
+NSE:TV18BRDCST,TV18 Broadcast Ltd.,Media Entertainment & Publication,TV18BRDCST,43.65,3637249
+NSE:NATIONALUM,National Aluminium Co. Ltd.,Metals & Mining,NATIONALUM,97.2,1629185
+NSE:NSLNISP,NMDC Steel Ltd.,Metals & Mining,NSLNISP,51.45,3630081
+NSE:HINDCOPPER,Hindustan Copper Ltd.,Metals & Mining,HINDCOPPER,162.4,4592385
+NSE:GSPL,Gujarat State Petronet Ltd.,Oil Gas & Consumable Fuels,GSPL,282.2,3378433
+NSE:MRPL,Mangalore Refinery & Petrochemicals Ltd.,Oil Gas & Consumable Fuels,MRPL,95.6,584449
+NSE:CASTROLIND,Castrol India Ltd.,Oil Gas & Consumable Fuels,CASTROLIND,138.55,320001
+NSE:CESC,CESC Ltd.,Power,CESC,89.95,160769
+NSE:NLCINDIA,NLC India Ltd.,Power,NLCINDIA,134.95,2197761
+NSE:SJVN,SJVN Ltd.,Power,SJVN,73.15,4834049
+NSE:SWANENERGY,Swan Energy Ltd.,Realty,SWANENERGY,287.8,6936321
+NSE:ALLCARGO,Allcargo Logistics Ltd.,Services,ALLCARGO,272.75,3456257
+NSE:RTNINDIA,RattanIndia Enterprises Ltd.,Services,RTNINDIA,56.9,6988033
+NSE:MMTC,MMTC Ltd.,Services,MMTC,58.4,4596993
+NSE:GPPL,Gujarat Pipavav Port Ltd.,Services,GPPL,124.25,5051137
+NSE:FSL,Firstsource Solutions Ltd.,Services,FSL,167.55,3661825
+NSE:REDINGTON,Redington Ltd.,Services,REDINGTON,154.8,3649281
+NSE:STLTECH,Sterlite Technologies Ltd.,Telecommunication,STLTECH,161.05,2383105
+NSE:ITI,ITI Ltd.,Telecommunication,ITI,201.1,428801
+NSE:HFCL,HFCL Ltd.,Telecommunication,HFCL,77.15,5619457
+NSE:TTML,Tata Teleservices (Maharashtra) Ltd.,Telecommunication,TTML,99.45,2292225
+NSE:WELSPUNIND,Welspun India Ltd.,Textiles,WELSPUNIND,121.45,2880769
