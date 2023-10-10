@@ -1,8 +1,7 @@
 from pandas.core.api import DataFrame
 from toolkit.logger import Logger
 from toolkit.fileutils import Fileutils
-from login_get_kite import get_kite, remove_token
-
+from omspy_brokers.bypass import Bypass
 from constants import dir_path, secs
 import sys
 from time import sleep
@@ -12,9 +11,31 @@ import pendulum
 
 logging = Logger(10)
 
-
+fils = Fileutils()
 FM = pendulum.now().subtract(days=125).to_datetime_string()
 TRADES_DF = pd.read_csv("tradebook.csv")
+
+
+def get_kite():
+    try:
+        enctoken = None
+        fpath = dir_path + 'bypass.yaml'
+        dct = fils.get_lst_fm_yml(fpath)
+        tokpath = dir_path + dct['userid'] + '.txt'
+        if not fils.is_file_not_2day(tokpath):
+            with open(tokpath, 'r') as tf:
+                enctoken = tf.read()
+        print(f'{tokpath=} has {enctoken=}')
+        bypass = Bypass(dct['userid'],
+                        dct['password'],
+                        dct['totp'],
+                        tokpath,
+                        enctoken)
+        bypass.authenticate()
+    except Exception as e:
+        logging.error(f"unable to create bypass object  {e}")
+    else:
+        return bypass
 
 
 def update_df_with_ltp(df_sym: DataFrame, lst_exchsym: list) -> DataFrame:
@@ -57,7 +78,7 @@ def order_place(index: str, row: DataFrame):
                 abs(row['signal']),
                 row['ltp'],
             ]
-            Fileutils().append_to_csv("tradebook.csv", lst_row)
+            fils.append_to_csv("tradebook.csv", lst_row)
 
     except Exception as e:
         print(traceback.format_exc())
@@ -137,20 +158,19 @@ except Exception as e:
 
 
 try:
-    broker = get_kite(api="bypass", sec_dir=dir_path)
+    broker = get_kite()
     df_sym = pd.read_csv("symbols.csv")
     df_sym['key'] = "NSE:" + df_sym['symbol']
     df_sym.set_index('key', inplace=True)
     lst_exchsym = df_sym.index.to_list()
-    df_sym = update_df_with_ltp(df_sym, lst_exchsym)
 except Exception as e:
-    remove_token(dir_path)
     print(traceback.format_exc())
-    logging.error(f"{str(e)} while getting ltp and token")
+    logging.error(f"{str(e)} while getting login")
     sys.exit(1)
 
 
 try:
+    df_sym = update_df_with_ltp(df_sym, lst_exchsym)
     # Filter out rows where 'disabled' column has a length greater than 0
     df_sym['disabled '] = df_sym['disabled'].astype('str')
     df_sym = df_sym[~(df_sym.disabled.str.upper() == 'X')]
@@ -179,6 +199,5 @@ try:
     sys.exit(0)
 
 except Exception as e:
-    remove_token(dir_path)
     print(traceback.format_exc())
     logging.error(f"{str(e)} in the main loop")

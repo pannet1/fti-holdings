@@ -1,10 +1,7 @@
 from pandas.core.api import DataFrame
 from toolkit.logger import Logger
-from toolkit.fileutils import Fileutils
-from login_get_kite import get_kite, remove_token
-
+from omspy_brokers.bypass import Bypass
 from constants import dir_path, secs
-import sys
 from time import sleep
 import traceback
 import pandas as pd
@@ -16,7 +13,29 @@ FM = pendulum.now().subtract(days=300).to_datetime_string()
 df_sym = pd.read_csv("./ind_niftysmallcap250list.csv")
 
 
-broker = get_kite("bypass")
+def get_kite():
+    try:
+        enctoken = None
+        fpath = dir_path + 'bypass.yaml'
+        dct = fils.get_lst_fm_yml(fpath)
+        tokpath = dir_path + dct['userid'] + '.txt'
+        if not fils.is_file_not_2day(tokpath):
+            with open(tokpath, 'r') as tf:
+                enctoken = tf.read()
+        print(f'{tokpath=} has {enctoken=}')
+        bypass = Bypass(dct['userid'],
+                        dct['password'],
+                        dct['totp'],
+                        tokpath,
+                        enctoken)
+        bypass.authenticate()
+    except Exception as e:
+        logging.error(f"unable to create bypass object  {e}")
+    else:
+        return bypass
+
+
+broker = get_kite()
 
 
 def update_df_with_ltp(df_sym: DataFrame, lst_exchsym: list) -> DataFrame:
@@ -57,7 +76,7 @@ df_sym.to_csv("tokens.csv")
 """
 for index, row in df_sym.iterrows():
     df = generate_signals(row)
-    df.to_csv(row['Symbol'] + ".csv")
+    df.to_csv(data/row['Symbol'] + ".csv")
 import pandas as pd
 import matplotlib.pyplot as plt
 """
@@ -69,7 +88,7 @@ historical_data = pd.read_csv("historical_data.csv")
 
 # Step 2: Specify the industry of interest
 # Replace with your desired industry
-industry_of_interest = "Automobile and Auto Com5ponents"
+industry_of_interest = "Automobile and Auto Components"
 
 # Filter stocks based on the specified industry
 industry_stocks = stock_data[stock_data["industry"]

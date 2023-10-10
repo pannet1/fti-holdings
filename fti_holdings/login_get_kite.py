@@ -42,9 +42,10 @@ def _get_bypass(sec_dir):
                 with open(tokpath, 'w') as tw:
                     tw.write(enctoken)
     except Exception as e:
-        print(f"unable to create bypass object {e}")
+        print(f"unable to create bypass object  {e}")
     else:
         return bypass
+
 
 
 def _get_zerodha(sec_dir):
