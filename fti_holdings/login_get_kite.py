@@ -47,7 +47,6 @@ def _get_bypass(sec_dir):
         return bypass
 
 
-
 def _get_zerodha(sec_dir):
     try:
         fpath = sec_dir + 'zerodha.yaml'

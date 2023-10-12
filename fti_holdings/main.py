@@ -20,22 +20,31 @@ def get_kite():
     try:
         enctoken = None
         fpath = dir_path + 'bypass.yaml'
-        dct = fils.get_lst_fm_yml(fpath)
+        dct: dict = fils.get_lst_fm_yml(fpath)
         tokpath = dir_path + dct['userid'] + '.txt'
-        if not fils.is_file_not_2day(tokpath):
-            with open(tokpath, 'r') as tf:
-                enctoken = tf.read()
-        print(f'{tokpath=} has {enctoken=}')
+        with open(tokpath, 'r') as tf:
+            enctoken = tf.read()
+            print(f'{tokpath=} has {enctoken=}')
         bypass = Bypass(dct['userid'],
                         dct['password'],
                         dct['totp'],
                         tokpath,
                         enctoken)
-        bypass.authenticate()
+        if not bypass.authenticate():
+            raise ValueError("unable to authenticate")
     except Exception as e:
         logging.error(f"unable to create bypass object  {e}")
+        remove_token()
     else:
         return bypass
+
+
+def remove_token():
+    fpath = dir_path + 'bypass.yaml'
+    dct = fils.get_lst_fm_yml(fpath)
+    tokpath = dir_path + dct['userid'] + '.txt'
+    with open(tokpath, "w") as tp:
+        tp.write('')
 
 
 def update_df_with_ltp(df_sym: DataFrame, lst_exchsym: list) -> DataFrame:
@@ -199,5 +208,6 @@ try:
     sys.exit(0)
 
 except Exception as e:
+    remove_token()
     print(traceback.format_exc())
     logging.error(f"{str(e)} in the main loop")
