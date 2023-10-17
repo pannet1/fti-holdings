@@ -1,9 +1,8 @@
+from logzero import logger as logging
 import redis
 from time import sleep
-from toolkit.logger import Logger
 
 r = redis.Redis(host='localhost', port=6379)
-logging = Logger(30, "redis.log")
 
 
 class RedisClient:
@@ -16,7 +15,7 @@ class RedisClient:
             else:
                 return False
         except Exception as e:
-            logging.error(f"Error: {str(e)}")
+            print(f"Error: {str(e)}")
 
     def get_one(self, itemid: int) -> None:
         error_count = 0
@@ -69,6 +68,7 @@ class RedisClient:
                 new_lst.append(quote)
         dct = {lst_exchsym[i]: new_lst[i] for i in range(len(new_lst))}
         dct = {k: v for k, v in dct.items() if v is not None}
+        dct = {k[4:]: v for k, v in dct.items()}
         return dct
 
 
