@@ -106,37 +106,53 @@ def generate_signals(row):
         df['200_ma'] = df['close'].rolling(200).mean()
         df['signal'] = 0
 
-        # Set 'signal' > 0 for buy signals based on your rules
-        """ above ma200 wait for next fibo change % """
+        """                                         """
+        """              BUY signals                """
+        """                                         """
         df.loc[
-            (df['open'] < df['12_ma']) &
-            (df['close'] > df['12_ma']) &
-            (row['perc_chng'] < 0) &
+            (row['trade_type'] != 'buy') &
+            # bullish fast cross
+            (df.open < df['12_ma']) & (df['close'] > df['12_ma']) &
+            # stock trading high
+            (row['perc_chng'] > 1) &
+            # and above 200MA
+            (row['ltp'] > df['200_ma']), 'signal'
+        ] = 1
+
+        df.loc[
+            # bullish fast cross
+            (df['open'] < df['12_ma']) & (df['close'] > df['12_ma']) &
+            # stock trading low
             (row['perc_chng'] < -1 * row['fibo']) &
+            # but above 200MA
             (row['ltp'] > df['200_ma']), 'signal'
         ] = row['quantity']
-        """ below ma200 wait for bigger change % """
+
         df.loc[
-            (df['open'] < df['12_ma']) &
-            (df['close'] > df['12_ma']) &
-            (row['perc_chng'] < 0) &
+            # bullish fast cross
+            (df['open'] < df['12_ma']) & (df['close'] > df['12_ma']) &
+            # stock trading lower
             (row['perc_chng'] < -1 * row['martingale']) &
+            # but below 200MA
             (row['ltp'] < df['200_ma']), 'signal'
         ] = row['martingale']
-        """ below ma200 wait for sell fibo % """
+
+        """                                         """
+        """              SELL signals               """
+        """                                         """
         df.loc[
             (row['trade_type'] == 'buy') &
-            (df['open'] > df['12_ma']) &
-            (df['close'] < df['12_ma']) &
+            (df['open'] > df['12_ma']) & (df['close'] < df['12_ma']) &
             (row['perc_chng'] > row['fibo']) &
+            # if we are below 200MA panic sell
             (row['ltp'] < df['200_ma']), 'signal'
         ] = row['quantity'] * -1
-        """ above ma200 for sell at martingale % """
+
         df.loc[
             (row['trade_type'] == 'buy') &
-            (df['open'] > df['12_ma']) &
-            (df['close'] < df['12_ma']) &
+            (df['open'] > df['12_ma']) & (df['close'] < df['12_ma']) &
             (row['perc_chng'] > row['martingale']) &
+            # if we are above 200MA sell for good profit
             (row['ltp'] > df['200_ma']), 'signal'
         ] = row['quantity'] * -1
         print(df.tail())
