@@ -1,5 +1,6 @@
 wheel
 setuptools==58.2.0
+git+https://github.com/pannet1/omspy
 git+https://github.com/pannet1/omspy-brokers
 git+https://github.com/pannet1/toolkit
 git+https://github.com/pannet1/kiteext
@@ -7,3 +8,6 @@ kiteconnect
 pandas
 pyotp
 bs4
+pyyaml
+pydantic==1.9.0
+pendulum

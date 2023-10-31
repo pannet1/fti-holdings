@@ -102,8 +102,8 @@ def generate_signals(row):
         to = pendulum.now().to_datetime_string()
         data = broker.kite.historical_data(row['token'], FM, to, '60minute')
         df = pd.DataFrame(data)
-        df['12_ma'] = df['close'].rolling(12).mean()
-        df['200_ma'] = df['close'].rolling(200).mean()
+        df['ma_12'] = df.close.rolling(12).mean()
+        df['ma_200'] = df.close.rolling(200).mean()
         df['signal'] = 0
 
         """                                         """
@@ -112,29 +112,29 @@ def generate_signals(row):
         df.loc[
             (row['trade_type'] != 'buy') &
             # bullish fast cross
-            (df.open < df['12_ma']) & (df['close'] > df['12_ma']) &
+            (df.open < df.ma_12) & (df.close > df.ma_12) &
             # stock trading high
             (row['perc_chng'] > 1) &
             # and above 200MA
-            (row['ltp'] > df['200_ma']), 'signal'
+            (row['ltp'] > df.ma_200), 'signal'
         ] = 1
 
         df.loc[
             # bullish fast cross
-            (df['open'] < df['12_ma']) & (df['close'] > df['12_ma']) &
+            (df.open < df.ma_12) & (df.close > df.ma_12) &
             # stock trading low
             (row['perc_chng'] < -1 * row['fibo']) &
             # but above 200MA
-            (row['ltp'] > df['200_ma']), 'signal'
+            (row['ltp'] > df.ma_200), 'signal'
         ] = row['quantity']
 
         df.loc[
             # bullish fast cross
-            (df['open'] < df['12_ma']) & (df['close'] > df['12_ma']) &
+            (df.open < df.ma_12) & (df.close > df.ma_12) &
             # stock trading lower
             (row['perc_chng'] < -1 * row['martingale']) &
             # but below 200MA
-            (row['ltp'] < df['200_ma']), 'signal'
+            (row['ltp'] < df.ma_200), 'signal'
         ] = row['martingale']
 
         """                                         """
@@ -142,18 +142,18 @@ def generate_signals(row):
         """                                         """
         df.loc[
             (row['trade_type'] == 'buy') &
-            (df['open'] > df['12_ma']) & (df['close'] < df['12_ma']) &
+            (df.open > df.ma_12) & (df.close < df.ma_12) &
             (row['perc_chng'] > row['fibo']) &
             # if we are below 200MA panic sell
-            (row['ltp'] < df['200_ma']), 'signal'
+            (row['ltp'] < df.ma_200), 'signal'
         ] = row['quantity'] * -1
 
         df.loc[
             (row['trade_type'] == 'buy') &
-            (df['open'] > df['12_ma']) & (df['close'] < df['12_ma']) &
+            (df.open > df.ma_12) & (df.close < df.ma_12) &
             (row['perc_chng'] > row['martingale']) &
             # if we are above 200MA sell for good profit
-            (row['ltp'] > df['200_ma']), 'signal'
+            (row['ltp'] > df.ma_200), 'signal'
         ] = row['quantity'] * -1
         print(df.tail())
         sleep(secs)
