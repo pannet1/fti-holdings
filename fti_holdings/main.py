@@ -7,12 +7,14 @@ from time import sleep
 import traceback
 import pandas as pd
 import pendulum
+from df_utils import get_holdings_on_hand
 
 logging = Logger(10)
 
 FM = pendulum.now().subtract(days=125).to_datetime_string()
 TRADES_DF = pd.read_csv("tradebook.csv")
-
+HOLDINGS_DF = get_holdings_on_hand(TRADES_DF)
+list_of_lots = [1, 2, 3, 5, 8, 13, 21, 33, 54]
 
 def get_kite():
     try:
@@ -120,18 +122,18 @@ def generate_signals(row):
             "signal",
         ] = 1
 
-             previous sell trade now below fibo 
-             and above 200MA then buy 1 share
+                previous sell trade now below fibo 
+                and above 200MA then buy 1 share
         """
         df.loc[
-            (row.trade_type == "sell") & row.quantity
-            > 1
+            (row.trade_type == "sell")
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
             & (row["perc_chng"] < -1 * row["fibo"])
             & (row["ltp"] > df.ma_200),
             "signal",
-        ] = 1
+        ] = row['quantity']
+
 
         """
             any trade quantity == 1 and 
@@ -139,13 +141,14 @@ def generate_signals(row):
             and above 200MA then buy 1
         """
         df.loc[
-            (row.quantity == 1)
+            (row['quantity'] == 1)
+            & (row['trade_type'] == "buy")
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
-            & (row["perc_chng"] < -1 * row["fibo"])
+            & (row["perc_chng"] < -5)
             & (row["ltp"] > df.ma_200),
             "signal",
-        ] = row["quantity"]
+        ] = 2
 
         """
             previous buy trade now below fibo
@@ -154,10 +157,10 @@ def generate_signals(row):
         """
         df.loc[
             (row.trade_type == "buy")
-            & (row.quantity < 13 and row.quantity > 1)
+            & (row.quantity < 13 & row.quantity > 1)
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
-            & (row["perc_chng"] < -1 * row["fibo"])
+            & (row["perc_chng"] < -1 * row["martingale"])
             & (row["ltp"] > df.ma_200),
             "signal",
         ] = row["fibo"]
@@ -209,11 +212,11 @@ def generate_signals(row):
         return df.iloc[-2]["signal"]
     except Exception as e:
         print(e)
+        traceback.print_exc
 
 
 def calculate_fibo_martingale(quantity):
     # Define a function to calculate 'fibo' and 'martingale' columns
-    list_of_lots = [1, 2, 3, 5, 8, 13, 21, 33, 54]
     # Find the next highest number in the series for 'fibo' column
     for lot in list_of_lots:
         if quantity < lot:
@@ -221,6 +224,21 @@ def calculate_fibo_martingale(quantity):
             break
     return quantity
 
+def calculate_anti_fibo(quantity):
+    if quantity == 1:
+        return quantity
+    # sort the list in reverse order 
+    
+    reversed_list = list_of_lots[::-1]
+    for lot in reversed_list:
+        if quantity > lot:
+            quantity = lot 
+            break
+    return quantity
+
+"""
+    code starts here 
+"""
 
 try:
     TRADES_DF["trade_date"] = pd.to_datetime(TRADES_DF["trade_date"])
@@ -250,9 +268,8 @@ try:
     df_sym["disabled "] = df_sym["disabled"].astype("str")
     df_sym = df_sym[~(df_sym.disabled.str.upper() == "X")]
     df_sym.drop("disabled", axis=1, inplace=True)
-
     df_merged = TRADES_DF.merge(df_sym, on="symbol", how="inner")
-
+    df_merged = df_merged.merge(HOLDINGS_DF, on='symbol', how="inner")
     df_merged["perc_chng"] = (
         (df_merged["ltp"] - df_merged["price"]) / df_merged["ltp"] * 100
     )
@@ -260,6 +277,8 @@ try:
     # Apply the function to each row of the DataFrame
     df_merged["fibo"] = df_merged["quantity"].apply(calculate_fibo_martingale)
     df_merged["martingale"] = df_merged["fibo"].apply(calculate_fibo_martingale)
+    df_merged["rev_fibo"] = df_merged["quantity"].apply(calculate_anti_fibo)
+
 
     df_merged["signal"] = df_merged.apply(generate_signals, axis=1)
     # Display the updated DataFrame
