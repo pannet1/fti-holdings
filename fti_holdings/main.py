@@ -124,7 +124,7 @@ def generate_signals(row):
              and above 200MA then buy 1 share
         """
         df.loc[
-            (df.trade_type == "sell") & df.quantity
+            (row.trade_type == "sell") & df.quantity
             > 1
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
@@ -153,7 +153,7 @@ def generate_signals(row):
             and quantity > 1
         """
         df.loc[
-            (df.trade_type == "buy")
+            (row.trade_type == "buy")
             & (df.quantity < 13 and df.quantity > 1)
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
@@ -167,7 +167,7 @@ def generate_signals(row):
             below 200MA then fibo buy
         """
         df.loc[
-            (df.trade_type == "sell")
+            (row.trade_type == "sell")
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
             & (row["perc_chng"] < -1 * row["martingale"])
