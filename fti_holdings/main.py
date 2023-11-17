@@ -102,7 +102,7 @@ def generate_signals(row):
         data = broker.kite.historical_data(row["token"], FM, to, "60minute")
         df = pd.DataFrame(data)
         df["ma_12"] = df.close.rolling(12).mean()
-        df["ma_200"] = df.close.rolling(200).mean()
+        df["ma_380"] = df.close.rolling(380).mean()
         df["signal"] = 0
 
         """                                         
@@ -117,20 +117,20 @@ def generate_signals(row):
             # stock trading high
             (row["perc_chng"] > 1)
             &
-            # and above 200MA
-            (row["ltp"] > df.ma_200),
+            # and above 380MA
+            (row["ltp"] > df.ma_380),
             "signal",
         ] = 1
 
                 previous sell trade now below fibo 
-                and above 200MA then buy 1 share
+                and above 380MA then buy 1 share
         """
         df.loc[
             (row.trade_type == "sell")
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
             & (row["perc_chng"] < -1 * row["fibo"])
-            & (row["ltp"] > df.ma_200),
+            & (row["ltp"] > df.ma_380),
             "signal",
         ] = row['quantity']
 
@@ -138,7 +138,7 @@ def generate_signals(row):
         """
             any trade quantity == 1 and 
             now trading below 5%
-            and above 200MA then buy 1
+            and above 380MA then buy 1
         """
         df.loc[
             (row['quantity'] == 1)
@@ -146,13 +146,13 @@ def generate_signals(row):
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
             & (row["perc_chng"] < -5)
-            & (row["ltp"] > df.ma_200),
+            & (row["ltp"] > df.ma_380),
             "signal",
         ] = 2
 
         """
             previous buy trade now below fibo
-            and above 200MA then fibo buy
+            and above 380MA then fibo buy
             and quantity > 1
         """
         df.loc[
@@ -161,20 +161,20 @@ def generate_signals(row):
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
             & (row["perc_chng"] < -1 * row["martingale"])
-            & (row["ltp"] > df.ma_200),
+            & (row["ltp"] > df.ma_380),
             "signal",
         ] = row["fibo"]
 
         """
             previous sell trade but now 
-            below 200MA then fibo buy
+            below 380MA then fibo buy
         """
         df.loc[
             (row.trade_type == "sell")
             & (df.open < df.ma_12)
             & (df.close > df.ma_12)
             & (row["perc_chng"] < -1 * row["martingale"])
-            & (row["ltp"] < df.ma_200),
+            & (row["ltp"] < df.ma_380),
             "signal",
         ] = row["fibo"]
 
@@ -186,28 +186,28 @@ def generate_signals(row):
             & (df.open > df.ma_12)
             & (df.close < df.ma_12)
             & (row["perc_chng"] > row["fibo"])
-            & (row["ltp"] < df.ma_200),
+            & (row["ltp"] < df.ma_380),
             "signal",
-        ] = row["quantity"] * -1
+        ] = row["rev_fibo"] * -1
 
         df.loc[
             (row["trade_type"] == "buy")
-            & (df.open < df.ma_200)
-            & (df.close > df.ma_200)
+            & (df.open < df.ma_380)
+            & (df.close > df.ma_380)
             & (row["perc_chng"] > 1),
             "signal",
-        ] = row["quantity"] * -1
+        ] = row["rev_fibo"] * -1
 
         df.loc[
             (row["trade_type"] == "buy")
             & (df.open > df.ma_12)
             & (df.close < df.ma_12)
             & (row["perc_chng"] > row["martingale"])
-            & (row["ltp"] > df.ma_200),
+            & (row["ltp"] > df.ma_380),
             "signal",
         ] = row["quantity"] * -1
 
-        print(df.tail())
+        print(df.tail(3))
         sleep(secs)
         return df.iloc[-2]["signal"]
     except Exception as e:
