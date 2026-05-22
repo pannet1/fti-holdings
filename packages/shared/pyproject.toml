@@ -1,0 +1,11 @@
+[project]
+name = "shared"
+version = "0.1.0"
+description = "Shared utilities for backend apps"
+requires-python = ">=3.10, <3.11"
+dependencies = [
+    "toolkit",
+]
+
+[tool.uv.sources]
+toolkit = { git = "https://github.com/pannet1/toolkit" }

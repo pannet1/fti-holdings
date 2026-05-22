@@ -1,65 +1,154 @@
-# AGENTS.md — Ratchet Holdings
+# AGENTS.md — Agentic Workflow Constitution
 
-## Project
+**Stack**: Python (FastAPI, SQLite) + Qwik JS | **Paradigm**: Spec-Driven Development + Vertical Slice Architecture
 
-- **Repo**: fti-holdings (deprecated name, new project: ratchet-holdings concept)
-- **Broker**: Finvasia (Shoonya)
-- **Bridge**: broker-ai (replaces omspy-brokers / stock-brokers)
-- **Strategy**: Ratchet investing — two-book (Holdings + Swing) with Fibonacci sizing
+## 1. Agent Hierarchy & Roles
 
-## Troubleshooting Checklist
+### Orchestrator Agent (The Brain) — TOP OF HIERARCHY
 
-### Login / Authentication
-1. Check `data/<userid>.txt` — is token from today? If stale, delete and retry
-2. Verify `bypass.yaml` or config YAML has correct userid/password/TOTP secret
-3. Check `data/log.txt` for authentication errors
-4. Run `journalctl --user -u ratchet-holdings -f` for service-level errors
+Sole entry point for human requests. Decomposes work, dispatches to sub-agents. Sub-agents never talk to each other — only the Orchestrator talks to the human.
 
-### Service Management
-- Start: `systemctl --user start ratchet-holdings`
-- Stop: `systemctl --user stop ratchet-holdings`
-- Restart: `systemctl --user restart ratchet-holdings`
-- Status: `systemctl --user status ratchet-holdings`
-- Enable linger: `loginctl enable-linger $USER`
+Decision: NEW FEATURE → dispatch Backend, MODIFICATION → dispatch Backend, BUG FIX → dispatch Backend, DEPLOYMENT → dispatch Deploy Agent.
 
-### Common Issues
-| Symptom | Likely Cause | Fix |
-|---------|-------------|-----|
-| No orders placed | Strategy not in `data/run.txt` | Remove stale entry or reset run.txt |
-| LTP = 0 | WebSocket not subscribed | Check symbol token in factory/symbols.yml |
-| Login fails daily | Token file expired | Delete token file, service auto-reauthenticates |
-| Drifted positions | Local CSV out of sync with broker | Compare `data/holdings.csv` with broker holdings |
-| Strategy crashes | Bad YAML config | Validate `data/*.yml` syntax |
+**Rules**:
+- Only the Orchestrator talks to the human. Sub-agents cannot.
+- Read the relevant spec docs before dispatching
+- Decompose work into atomic sub-tasks using the Task tool
+- Never write code directly — decompose and dispatch only
+- All sub-agent results flow back to the Orchestrator before returning to human
+- All work is done in a new feature branch named by the Orchestrator
+- SPEC.md must explicitly state that all code must use type annotations (PEP 484)
+- Ensure sub-agents complete all tasks fully before accepting results. If a sub-agent dies or returns partial output, re-dispatch it with the remaining work. Do not proceed to the next pipeline stage until the current stage is fully delivered.
 
-### Logs
-- User-visible errors: `data/log.txt`
-- System errors: `journalctl --user -u ratchet-holdings`
-- Broker API chatter: Set `log_level: INFO` in `settings.yml`
+---
 
-## Code Standards
+### Backend Sub-Agent (Reports to Orchestrator)
 
-- **Time library**: `pendulum` only — never `datetime`, `time`, `calendar`
-- **Logging**: Use `logging.getLogger(__name__)` via `logging_func` — never `print()`
-- **No comments** unless asked
-- **No emojis** in text files
-- **No secrets** in git-tracked files — use `.env`, YAML outside repo, or secrets manager
+Write-locked to individual feature slices. Read specs, write only to target feature dir, enforce Code Standards (Section 3).
 
-## Testing
+### Frontend Sub-Agent (Reports to Orchestrator)
 
-- Unit tests: `uv run pytest tests/` (local)
-- Integration tests: run on server only
-- Functional tests: Playwright with `--browser chromium` headless
+Write-locked to Qwik feature slices. Read specs, implement components/routes in target dir, enforce Code Standards (Section 3).
 
-## Deployment
+---
 
-1. Commit locally: `git add -A && git commit && git push`
-2. Pull on server: `git pull`
-3. Restart service: `systemctl --user restart ratchet-holdings`
-4. Verify: check `data/log.txt` and `journalctl`
+### QA / Evaluation Agent (Reports to Orchestrator)
 
-## Scripts
+**Responsibility**: Autonomous quality gate. Runs after code agents.
 
-All executable scripts live in `scripts/`:
-- `scripts/local_*` — local development commands
-- `scripts/remote_*` — server deployment/verification commands
-- No sensitive info in scripts
+**Pipeline**:
+```
+[Code Agent completes] → [QA Agent runs] →
+  1. Lint check
+  2. Type check
+  3. Unit tests
+  4. Edge-case test generation + run
+  5. Spec compliance check (does code match spec?)
+  6. Report pass/fail → loop back to code agent on failure
+```
+
+---
+
+### Deploy Agent (Reports to Orchestrator)
+
+**Triggers after human merges the PR.** SSH to server, git pull, restart service, verify via logs.
+
+---
+
+## 2. Agentic Pipeline (Spec → Code → Eval)
+
+### Step 1: Spec Definition (Human + Orchestrator)
+Human describes feature → Orchestrator writes structured spec. **Output**: Locked-down acceptance criteria.
+
+### Step 2: Code Generation (Backend Agent)
+Reads spec, scaffolds FastAPI endpoints/SQLite models/Pydantic schemas/tests, implements logic. **Output**: Feature code + tests.
+
+### Step 2b: Frontend Generation (Frontend Agent — if applicable)
+Reads spec, scaffolds Qwik components and routes, implements UI. **Output**: Feature components + tests.
+
+### Step 3: Evaluation Gates (QA Agent)
+Lint + typecheck + unit tests + edge-case generation + spec compliance. Loops to Backend/Frontend on failure. **Gate passes only when** all five pass.
+
+### Step 4: Human Review
+Agent opens PR with summary. Human reviews and merges.
+
+---
+
+## 3. Code Standards (Enforced by Eval Gates)
+
+| Rule | Enforcement | Violation Action |
+|------|------------|-----------------|
+| **Python version:** `3.10.*` only | `.python-version` + code review | Reject gate |
+| **Package manager:** `uv` only | `pyproject.toml` + review | Reject gate |
+| **No pip/poetry/conda** | All deps via `uv add` or `uv sync` | Reject gate |
+| **No `requirements.txt`** | All deps in `pyproject.toml` only; `uv export`-generated `requirements.txt` permitted for deployment only | Reject gate |
+| **Project time library only** | Project-specific rule (see spec) | Reject gate |
+| `logging.getLogger(__name__)` for logging (see Logging Pattern below) | Code review | Reject gate |
+| Zero comments | Code review by Orchestrator | Reject gate |
+| No secrets in git-tracked files | Pre-commit hook + review | Block commit |
+| No emojis in text files | Code review | Reject gate |
+| Unit tests for every new feature | `pytest` coverage gate | Reject gate |
+| **Type annotations everywhere** (PEP 484) for all function signatures and module-level variables | Code review + mypy check | Reject gate |
+
+---
+
+## 4. Logging Pattern (Cross-Project Standard)
+
+All projects use `AsyncLogger` from `toolkit.logger` for non-blocking async logging. The setup is done once at import time in `shared/logger.py`:
+
+```python
+from toolkit.logger import AsyncLogger
+
+def async_logger():
+    manager = AsyncLogger(level, log_file, use_journal=True)
+    manager.start()
+    return manager.get_logger_function()
+
+logging_func = async_logger()          # module-level, runs at import
+```
+
+**How every module logs** — standard Python `logging.getLogger(__name__)`:
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+# or equivalently:
+from shared.logger import logging_func
+logger = logging_func(__name__)
+```
+
+**Why this works**: `AsyncLogger.start()` attaches a `QueueHandler` to Python's root logger. Every logger created via `logging.getLogger(__name__)` inherits the root logger's configuration — all log records flow through `AsyncLogger`'s async queue to files/journal/stdout transparently.
+
+**Logger init vs settings loader**: The logger reads `settings.yml` directly from disk at import time — it does NOT go through the settings handler. This avoids a circular dependency (logger needs settings, handler needs logger). The settings handler (`LoadTradeSettingsHandler`) is a separate path for the rest of the app. Two readers, one file.
+
+**Log levels**: Python's `logging.Logger.setLevel()` accepts both strings (`"DEBUG"`, `"INFO"`) and integers (`10`, `20`). Both forms are valid in config YAML files.
+
+| DO: | DON'T: |
+|-----|--------|
+| `logger = logging.getLogger(__name__)` | `print("message")` |
+| `logger.info("order placed")` | `logging = Logger(10)` |
+
+---
+
+## 5. Multi-Agent Task Execution Protocol
+
+### Entry Point
+```
+python .agents/orchestrator.py "<human request>"
+```
+
+### Workflow
+1. **Human** starts task with natural language description
+2. **Orchestrator** reads relevant specs, decomposes into atomic steps
+3. **Orchestrator** creates feature branch with a descriptive name
+4. **Orchestrator** creates task list via Task tool, dispatches to sub-agents
+5. **Backend Agent** implements feature in vertical slice, creates tests
+5b. **Frontend Agent** implements Qwik components/routes, creates tests (if applicable)
+6. **QA Agent** runs evaluation gates, feeds failures back to Backend/Frontend Agent
+7. **Loop** steps 5-6 until all gates pass (max 3 iterations, then escalate to human)
+8. **Orchestrator** commits all work and opens a PR for human review
+
+### Escalation Rules
+- If an agent fails after 3 auto-correction loops → escalate to human
+- If spec contradiction is found → escalate to Orchestrator
+- If a change touches both backend and deploy → dispatch both in parallel

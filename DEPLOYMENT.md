@@ -89,7 +89,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=%h/programs/fti-holdings
-ExecStart=%h/.local/bin/uv run python -m rachet_investing.main
+ExecStart=%h/.local/bin/uv run python -m app.main
 Restart=on-failure
 RestartSec=30
 StandardOutput=append:%h/programs/fti-holdings/data/log.txt
@@ -107,7 +107,7 @@ WantedBy=default.target
 # scripts/local_run.sh
 #!/bin/bash
 cd "$(git rev-parse --show-toplevel)"
-uv run python -m rachet_investing.main
+uv run python -m app.main
 ```
 
 ### Remote Verification
@@ -129,7 +129,7 @@ tail -20 ~/programs/fti-holdings/data/log.txt
 journalctl --user -u ratchet-holdings --no-pager -n 50
 
 # Test manually
-uv run python -m rachet_investing.main
+uv run python -m app.main
 ```
 
 ### Authentication Fails

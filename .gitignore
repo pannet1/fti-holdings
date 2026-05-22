@@ -150,3 +150,10 @@ style.css
 tailwind.config.js
 yarn-error.log
 yarn.lock
+
+# monorepo: agents tooling
+.agents/
+
+# monorepo: nested lockfiles (root lockfile only)
+apps/*/uv.lock
+packages/*/uv.lock
