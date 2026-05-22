@@ -22,6 +22,7 @@ class Rachet:
         self._total_qty: int = 0
         self._avg_price: float = 0.0
         self._last_buy_price: float = 0.0
+        self._last_buy_qty: int = self._x
         holdings_file = Path(data_dir) / "holdings.csv"
         if holdings_file.exists():
             with open(holdings_file) as f:
@@ -40,6 +41,7 @@ class Rachet:
                 for row in reader:
                     if row["tradingsymbol"] == self._tradingsymbol and row["side"] == "BUY":
                         self._last_buy_price = float(row["avg_price"])
+                        self._last_buy_qty = int(row["quantity"])
 
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
         cmp = quotes.get(self._tradingsymbol, 0)
