@@ -49,9 +49,29 @@ class TestTradeSettingsLoadHandler:
         with open(f, "w") as fh:
             yaml.dump(settings, fh)
 
+        strategy_file = tmp_path / "trade_ITBEES.yml"
+        strategy_file.write_text(yaml.dump({
+            "trade": {
+                "strategy": "ratchet",
+                "base": "ITBEES",
+                "symbol": "ITBEES",
+                "exchange": "BSE",
+                "quantity": 33,
+                "start_time": "09:30",
+                "stop_time": "15:00",
+                "multiplier": [1, 2, 3, 5, 8, 13, 21, 33, 55],
+                "perc": 0.05,
+            },
+            "ITBEES": {
+                "exchange": "BSE",
+                "tradingsymbol": "ITBEES",
+            },
+        }))
+
         handler.SETTINGS_FILE = f
         handler.AUTH_FILE = tmp_path / "auth.yaml"
         handler.AUTH_FILE.write_text("finvasia:\n  user_id: 'u'\n  password: 'p'\n  totp_secret: 't'\n")
+        handler.DATA_DIR = tmp_path
 
         result = handler._parse_global_settings()
         assert result.log_level == "INFO"

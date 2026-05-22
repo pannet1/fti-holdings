@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 
 class StrategyConfig(BaseModel):
@@ -10,11 +10,8 @@ class StrategyConfig(BaseModel):
     quantity: int
     start_time: str
     stop_time: str
-    fibo_seq: Optional[List[int]] = None
-    downtrend_thresh: Optional[float] = None
-    uptrend_thresh: Optional[float] = None
-    ratchet_factor: Optional[float] = None
-    sell_profit_thresh: Optional[float] = None
+    multiplier: List[int]
+    perc: float
 
 
 class RatchetStrategyRunSchema(BaseModel):

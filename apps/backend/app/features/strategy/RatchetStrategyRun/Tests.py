@@ -22,6 +22,8 @@ class TestRatchetStrategyRunHandler:
                 "quantity": 33,
                 "start_time": "09:30",
                 "stop_time": "15:00",
+                "multiplier": [1, 2, 3, 5, 8, 13, 21, 33, 55],
+                "perc": 0.05,
             },
         )
         assert result["status"] == "ok"
@@ -39,6 +41,8 @@ class TestRatchetStrategyRunHandler:
                 "quantity": 33,
                 "start_time": "09:30",
                 "stop_time": "15:00",
+                "multiplier": [1, 2, 3, 5, 8, 13, 21, 33, 55],
+                "perc": 0.05,
             },
         )
         strategy = Rachet(
@@ -49,6 +53,8 @@ class TestRatchetStrategyRunHandler:
             quantity=33,
             start_time="09:30",
             stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
         )
         signal = handler.execute_tick(strategy=strategy, quotes={"ITBEES": 245.50})
         assert signal is None
@@ -72,6 +78,8 @@ class TestRatchetStrategyRunHandler:
                     "quantity": 33,
                     "start_time": "09:30",
                     "stop_time": "15:00",
+                    "multiplier": [1, 2, 3],
+                    "perc": 0.05,
                 }
             ],
         )
@@ -92,10 +100,14 @@ class TestRachetStrategy:
             quantity=33,
             start_time="09:30",
             stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
         )
         assert inst.strategy == "ratchet"
         assert inst._tradingsymbol == "ITBEES"
         assert inst._x == 33
+        assert inst._multiplier == [1, 2, 3, 5, 8, 13, 21, 33, 55]
+        assert inst._perc == 0.05
         assert inst._total_qty == 0
         assert inst._avg_price == 0.0
         assert inst._last_buy_price == 0.0
@@ -111,6 +123,8 @@ class TestRachetStrategy:
             quantity=33,
             start_time="09:30",
             stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
         )
         quotes = {"ITBEES": 245.50, "MOTHERSON": 180.75}
         signal = inst.run(trades=None, quotes=quotes, positions=None)
@@ -126,6 +140,8 @@ class TestRachetStrategy:
             quantity=33,
             start_time="09:30",
             stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
         )
         quotes = {"ITBEES": 0}
         signal = inst.run(trades=None, quotes=quotes, positions=None)

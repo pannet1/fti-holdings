@@ -16,8 +16,9 @@ class Rachet:
         self._tradingsymbol = O_SETG.get("tradingsymbol", "")
         self._exchange = O_SETG.get("exchange", "NSE")
         self._token = O_SETG.get("instrument_token")
-        self._rest = O_SETG.get("rest")
         self._x = O_SETG.get("quantity", 33)
+        self._multiplier: List[int] = O_SETG.get("multiplier", [1])
+        self._perc: float = O_SETG.get("perc", 0.05)
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
         self._avg_price: float = 0.0
