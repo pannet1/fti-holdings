@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import Mock
 
 from .Handler import RatchetStrategyRunHandler
 from .Rachet import Rachet
@@ -7,9 +6,9 @@ from .Rachet import Rachet
 
 class TestRatchetStrategyRunHandler:
 
-    def test_execute_accepts_empty_strategies(self):
+    def test_execute_requires_strategy_in_config(self):
         handler = RatchetStrategyRunHandler()
-        with pytest.raises(ValueError, match="Authenticated broker session required"):
+        with pytest.raises(KeyError):
             handler.execute(config={})
 
     def test_execute_returns_strategy_info(self):
@@ -24,11 +23,35 @@ class TestRatchetStrategyRunHandler:
                 "start_time": "09:30",
                 "stop_time": "15:00",
             },
-            broker_session=Mock(),
         )
         assert result["status"] == "ok"
         assert result["strategy"] == "ratchet"
         assert result["tradingsymbol"] == "ITBEES"
+
+    def test_execute_tick_returns_none_for_hold(self):
+        handler = RatchetStrategyRunHandler()
+        result = handler.execute(
+            config={
+                "strategy": "ratchet",
+                "base": "ITBEES",
+                "tradingsymbol": "ITBEES",
+                "exchange": "BSE",
+                "quantity": 33,
+                "start_time": "09:30",
+                "stop_time": "15:00",
+            },
+        )
+        strategy = Rachet(
+            strategy="ratchet",
+            base="ITBEES",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+        )
+        signal = handler.execute_tick(strategy=strategy, quotes={"ITBEES": 245.50})
+        assert signal is None
 
     def test_load_strategies_returns_empty_on_bad_config(self):
         handler = RatchetStrategyRunHandler()
@@ -73,7 +96,7 @@ class TestRachetStrategy:
         assert inst._tradingsymbol == "ITBEES"
         assert inst._x == 33
 
-    def test_run_accepts_bse_ws_quotes(self):
+    def test_run_returns_none_for_hold_by_default(self):
         inst = Rachet(
             strategy="ratchet",
             base="ITBEES",
@@ -85,5 +108,20 @@ class TestRachetStrategy:
             stop_time="15:00",
         )
         quotes = {"ITBEES": 245.50, "MOTHERSON": 180.75}
-        inst.run(trades=None, quotes=quotes, positions=None)
-        assert inst._tradingsymbol == "ITBEES"
+        signal = inst.run(trades=None, quotes=quotes, positions=None)
+        assert signal is None
+
+    def test_run_returns_none_on_zero_quote(self):
+        inst = Rachet(
+            strategy="ratchet",
+            base="ITBEES",
+            symbol="ITBEES",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+        )
+        quotes = {"ITBEES": 0}
+        signal = inst.run(trades=None, quotes=quotes, positions=None)
+        assert signal is None
