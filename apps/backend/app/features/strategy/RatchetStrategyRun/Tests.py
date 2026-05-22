@@ -98,6 +98,7 @@ class TestRachetStrategy:
         assert inst._x == 33
         assert inst._total_qty == 0
         assert inst._avg_price == 0.0
+        assert inst._last_buy_price == 0.0
 
     def test_run_returns_none_for_hold_by_default(self):
         inst = Rachet(

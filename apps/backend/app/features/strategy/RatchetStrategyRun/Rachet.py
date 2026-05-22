@@ -21,6 +21,7 @@ class Rachet:
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
         self._avg_price: float = 0.0
+        self._last_buy_price: float = 0.0
         holdings_file = Path(data_dir) / "holdings.csv"
         if holdings_file.exists():
             with open(holdings_file) as f:
@@ -32,6 +33,13 @@ class Rachet:
                 total_value = sum(h.avg_price * h.quantity for h in self._holdings)
                 self._total_qty = sum(h.quantity for h in self._holdings)
                 self._avg_price = total_value / self._total_qty if self._total_qty > 0 else 0.0
+        trades_file = Path(data_dir) / "trades.csv"
+        if trades_file.exists():
+            with open(trades_file) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row["tradingsymbol"] == self._tradingsymbol and row["side"] == "BUY":
+                        self._last_buy_price = float(row["avg_price"])
 
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
         cmp = quotes.get(self._tradingsymbol, 0)
