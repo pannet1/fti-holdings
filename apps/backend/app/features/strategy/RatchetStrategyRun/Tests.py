@@ -81,8 +81,9 @@ class TestRatchetStrategyRunHandler:
 
 class TestRachetStrategy:
 
-    def test_ratchet_object_is_created(self):
+    def test_ratchet_object_is_created(self, tmp_path):
         inst = Rachet(
+            data_dir=str(tmp_path),
             strategy="ratchet",
             base="ITBEES",
             symbol="ITBEES",
@@ -95,6 +96,8 @@ class TestRachetStrategy:
         assert inst.strategy == "ratchet"
         assert inst._tradingsymbol == "ITBEES"
         assert inst._x == 33
+        assert inst._total_qty == 0
+        assert inst._avg_price == 0.0
 
     def test_run_returns_none_for_hold_by_default(self):
         inst = Rachet(

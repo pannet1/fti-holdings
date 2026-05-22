@@ -1,6 +1,7 @@
 import logging
 import time
 import yaml
+from datetime import datetime
 from pathlib import Path
 from traceback import print_exc
 from typing import Any, List
@@ -12,6 +13,9 @@ from app.features.broker.BrokerAuthenticate.Handler import BrokerAuthenticateHan
 from app.features.strategy.RatchetStrategyRun.Handler import RatchetStrategyRunHandler
 from app.features.strategy.RatchetStrategyRun.Rachet import Rachet
 from app.features.order.OrderManager.Handler import OrderManagerHandler
+from app.features.state.HoldingsTracker.Handler import HoldingsTrackerHandler
+from app.features.state.HoldingsTracker.Schema import HoldingsRow
+from app.features.state.TradesJournal.Handler import TradesJournalHandler
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +63,14 @@ def fetch_quotes(broker_session: Any, strategies: List[Rachet]) -> dict:
     return quotes
 
 
-def route_signal(order_manager: OrderManagerHandler, signal: dict, broker_session: Any) -> None:
-    order_manager.execute(
+def route_signal(
+    order_manager: OrderManagerHandler,
+    signal: dict,
+    broker_session: Any,
+    holdings_tracker: HoldingsTrackerHandler,
+    trades_journal: TradesJournalHandler,
+) -> None:
+    result = order_manager.execute(
         tradingsymbol=signal["tradingsymbol"],
         exchange=signal["exchange"],
         transaction_type=signal["action"],
@@ -68,6 +78,22 @@ def route_signal(order_manager: OrderManagerHandler, signal: dict, broker_sessio
         price=signal["price"],
         broker_session=broker_session,
     )
+    if result.get("status") == "ok":
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        row = HoldingsRow(
+            datetime=now,
+            exchange=signal["exchange"],
+            tradingsymbol=signal["tradingsymbol"],
+            side=signal["action"],
+            avg_price=float(signal["price"]),
+            quantity=int(signal["quantity"]),
+            strategy="ratchet",
+        )
+        if signal["action"] == "BUY":
+            holdings_tracker.add_holding(row)
+        elif signal["action"] == "SELL":
+            holdings_tracker.remove_holding(signal["tradingsymbol"], int(signal["quantity"]))
+            trades_journal.journal_trade(row)
 
 
 def main():
@@ -100,6 +126,8 @@ def main():
         runner = RatchetStrategyRunHandler()
         tracker = RunStateTrackHandler(data_dir=str(DATA_DIR))
         order_mgr = OrderManagerHandler()
+        holdings_tracker = HoldingsTrackerHandler(data_dir=str(DATA_DIR))
+        trades_journal = TradesJournalHandler(data_dir=str(DATA_DIR))
 
         strategies = build_strategies(tracker)
         logger.info(f"Active strategies: {len(strategies)}")
@@ -112,7 +140,7 @@ def main():
                     signal = runner.execute_tick(strategy=strategy, quotes=quotes)
                     if signal is not None:
                         logger.info(f"Signal: {signal['action']} {signal['tradingsymbol']} @ {signal['price']}")
-                        route_signal(order_mgr, signal, broker_session)
+                        route_signal(order_mgr, signal, broker_session, holdings_tracker, trades_journal)
 
                 time.sleep(1)
 
