@@ -14,6 +14,7 @@ Base unit = quantity of the first buy
 - Determine win_qty and loss_qty from trade history
 - If no prior trade exists, both default to the configured quantity
 - On run: if winning (price up) use win_qty, if losing (price down) use loss_qty
+- Buy check runs once per candle (configurable, default 1 minute)
 
 ### During Trading (open holdings exist)
 The multiplier moves based on market price vs last trade price:
