@@ -372,6 +372,15 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
 
     # --- feature/X: scaffold new feature ---
     if prefix == "feature":
+        if not prompt_content:
+            print("=" * 60)
+            print("ERROR: feature/X requires a description.")
+            print()
+            print("Usage:")
+            print(f'  ./.agents/orchestrator.py feature/X --prompt "describe what to build"')
+            print(f"  ./.agents/orchestrator.py feature/X --prompt path/to/prompt.md")
+            print("=" * 60)
+            return
         domain, inferred = infer_domain_action(action)
         check_branch(inferred, "feature")
         scaffold_new_feature(domain, inferred, prompt_content)
