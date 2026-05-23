@@ -1,9 +1,9 @@
 import csv
 import logging
-import time
 from pathlib import Path
 from typing import Any, List, Optional
 
+from app.features.common.CandleManager.Handler import CandleManagerHandler
 from app.features.state.HoldingsTracker.Schema import HoldingsRow
 
 logger = logging.getLogger(__name__)
@@ -21,8 +21,12 @@ class Rachet:
         self._x = O_SETG.get("quantity", 33)
         self._multiplier: List[int] = O_SETG.get("multiplier", [1])
         self._perc: float = O_SETG.get("perc", 0.05)
-        self._candle_seconds: int = O_SETG.get("candle", 1) * 60
-        self._last_check_time: float = 0.0
+        self._candle = CandleManagerHandler(
+            minute=O_SETG.get("candle", 1),
+            start=O_SETG.get("start_time", "09:00"),
+            stop=O_SETG.get("stop_time", "15:30"),
+        )
+        self._last_candle_idx: int = -1
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
         self._avg_price: float = 0.0
@@ -72,10 +76,10 @@ class Rachet:
         if cmp <= 0:
             return None
 
-        now = time.time()
-        if now - self._last_check_time < self._candle_seconds:
+        curr_idx = self._candle.current_index
+        if curr_idx <= self._last_candle_idx:
             return None
-        self._last_check_time = now
+        self._last_candle_idx = curr_idx
 
         self._read_holdings(Path(self._data_dir) / "holdings.csv")
 

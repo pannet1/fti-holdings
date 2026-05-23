@@ -250,7 +250,7 @@ class TestRachetStrategy:
             "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
             "2026-05-22 09:30,BSE,ITBEES,BUY,250.00,33,ratchet\n"
         )
-        inst._last_check_time = 0.0
+        inst._last_candle_idx = -1
         signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
         assert signal2 is None
 
