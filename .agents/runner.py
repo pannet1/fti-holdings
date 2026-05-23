@@ -8,13 +8,13 @@ and runs pytest in an auto-correction loop.
 Usage:
     python .agents/runner.py \\
         --persona .agents/personas/backend_agent.md \\
-        --target apps/backend/app/features/broker/BrokerAuthenticate/ \\
+        --target apps/backend/app/features/broker/AuthenticateBroker/ \\
         --task "Implement the feature per spec.md" \\
         --api
 
     python .agents/runner.py \\
         --persona .agents/personas/qa_agent.md \\
-        --target apps/backend/app/features/strategy/RatchetStrategyRun/ \\
+        --target apps/backend/app/features/strategy/RunRatchetStrategy/ \\
         --error /tmp/pytest_errors.txt \\
         --api
 """

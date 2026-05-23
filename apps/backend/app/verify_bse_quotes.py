@@ -4,7 +4,7 @@ from traceback import print_exc
 
 import yaml
 
-from app.features.broker.BrokerAuthenticate.Handler import BrokerAuthenticateHandler
+from app.features.broker.AuthenticateBroker.Handler import AuthenticateBrokerHandler
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ def main():
         with open(AUTH_FILE) as f:
             creds = yaml.safe_load(f)["finvasia"]
 
-        auth = BrokerAuthenticateHandler().execute(
+        auth = AuthenticateBrokerHandler().execute(
             userid=creds["userid"],
             password=creds["password"],
             totp_secret=creds["totp_secret"],

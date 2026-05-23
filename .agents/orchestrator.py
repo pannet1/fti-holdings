@@ -6,47 +6,38 @@ Entry point for human requests. Prints the EXACT command to run next
 at every step. The Human copies and pastes each command.
 
 Usage:
-    ./.agents/orchestrator.py feature/CandleManager
-    ./.agents/orchestrator.py feature/CandleManager --prompt drafts/my_prompt.md
-    ./.agents/orchestrator.py implement/CandleManager
-    ./.agents/orchestrator.py modify/RatchetStrategyRun
-    ./.agents/orchestrator.py bugfix/RatchetStrategyRun
+    ./.agents/orchestrator.py feature/ManageCandle
+    ./.agents/orchestrator.py feature/ManageCandle --prompt drafts/my_prompt.md
+    ./.agents/orchestrator.py implement/ManageCandle
+    ./.agents/orchestrator.py modify/RunRatchetStrategy
+    ./.agents/orchestrator.py bugfix/RunRatchetStrategy
 """
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_DIR = REPO_ROOT / ".agents"
 FEATURES_DIR = REPO_ROOT / "apps" / "backend" / "app" / "features"
+FEATURES_CONFIG = AGENTS_DIR / "features.json"
 RUNNER = AGENTS_DIR / "runner.py"
 PERSONAS_DIR = AGENTS_DIR / "personas"
 
-KNOWN_FEATURES = {
-    "BrokerAuthenticate": "broker",
-    "CandleManager": "common",
-    "QuotesFetch": "market",
-    "OrderManager": "order",
-    "HoldingsTracker": "state",
-    "TradesJournal": "state",
-    "TradeSettingsLoad": "state",
-    "RunStateTrack": "state",
-    "SymbolsLoad": "state",
-    "RatchetStrategyRun": "strategy",
-}
 
-DOMAIN_KEYWORDS = {
-    "auth": ("broker", "BrokerAuthenticate"),
-    "candle": ("common", "CandleManager"),
-    "quote": ("market", "QuotesFetch"),
-    "order": ("order", "OrderManager"),
-    "holding": ("state", "HoldingsTracker"),
-    "trade": ("state", "TradesJournal"),
-    "settings": ("state", "TradeSettingsLoad"),
-    "ratchet": ("strategy", "RatchetStrategyRun"),
+def load_features_config() -> dict[str, Any]:
+    if not FEATURES_CONFIG.exists():
+        return {"known_features": {}, "domain_keywords": {}}
+    with open(FEATURES_CONFIG) as f:
+        return json.load(f)
+
+FEATURES_CFG = load_features_config()
+KNOWN_FEATURES: dict[str, str] = FEATURES_CFG.get("known_features", {})
+DOMAIN_KEYWORDS: dict[str, tuple[str, str]] = {
+    k: tuple(v) for k, v in FEATURES_CFG.get("domain_keywords", {}).items()
 }
 
 SPEC_TEMPLATE = """\
@@ -176,6 +167,15 @@ def infer_domain_action(feature_name: str) -> tuple[str, str]:
     for key, (domain, action) in DOMAIN_KEYWORDS.items():
         if key in lower:
             return domain, action
+    # filesystem fallback: scan existing features
+    for domain_dir in FEATURES_DIR.iterdir():
+        if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
+            continue
+        for feature_dir in domain_dir.iterdir():
+            if not feature_dir.is_dir() or feature_dir.name.startswith("_"):
+                continue
+            if feature_dir.name.lower() == lower:
+                return domain_dir.name, feature_dir.name
     return "general", name
 
 
@@ -192,18 +192,47 @@ def find_feature_dir(request_feature: str) -> Optional[Path]:
     return None
 
 
-def check_branch(action: str, prefix: str = "feature") -> None:
+def unmerged_branches() -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--no-merged", "main"],
+            capture_output=True, text=True, cwd=str(REPO_ROOT),
+        )
+        lines = [l.strip() for l in result.stdout.split("\n") if l.strip() and not l.strip().startswith("*")]
+        # filter out main itself
+        return [l for l in lines if l != "main"]
+    except Exception:
+        return []
+
+
+def check_branch(action: str, prefix: str = "feature") -> str:
     branch = current_branch()
+
+    # Case 4: already on a feature/modify/bugfix branch — complete it first
+    for p in ("feature/", "modify/", "bugfix/"):
+        if branch.startswith(p):
+            print("=" * 60)
+            print(f"You are already on branch '{branch}'.")
+            print("Complete and merge this branch first, then try again.")
+            print("=" * 60)
+            sys.exit(1)
+
     if branch == "main" or branch.startswith("main"):
-        print("=" * 60)
-        print("WARNING: You are on the 'main' branch.")
-        print(f"Create and switch to a {prefix} branch first:\n")
-        print(f"  git checkout -b {prefix}/{action}\n")
-        print("Then run this command again.")
-        print("=" * 60)
-        sys.exit(1)
+        pending = unmerged_branches()
+        if pending:
+            print("=" * 60)
+            print("BLOCKED: Unmerged branches still exist. Merge them first:")
+            for b in pending:
+                print(f"  {b}")
+            print("=" * 60)
+            sys.exit(1)
+        target = f"{prefix}/{action}"
+        print(f"[Orchestrator] On main with clean slate. Auto-creating branch: {target}")
+        subprocess.run(["git", "checkout", "-b", target], cwd=str(REPO_ROOT))
+        return target
     elif branch == "(unknown)":
         pass
+    return branch
 
 
 def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
@@ -322,12 +351,18 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
 
         branch = current_branch()
         if branch == "main" or branch.startswith("main"):
-            print("=" * 60)
-            print("WARNING: You are on 'main'. Switch to a feature branch:")
-            print(f"  git checkout -b feature/{feature_dir.name}")
-            print("Then run this command again.")
-            print("=" * 60)
-            return
+            pending = unmerged_branches()
+            if pending:
+                print("=" * 60)
+                print("BLOCKED: Unmerged branches still exist. Merge them first:")
+                for b in pending:
+                    print(f"  {b}")
+                print("=" * 60)
+                return
+            target = f"feature/{feature_dir.name}"
+            print(f"[Orchestrator] On main with clean slate. Auto-creating branch: {target}")
+            subprocess.run(["git", "checkout", "-b", target], cwd=str(REPO_ROOT))
+            branch = target
 
         # Detect branch type to tailor the runner task prompt and commit message
         if branch.startswith("bugfix/"):
@@ -404,11 +439,11 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
     print("[Orchestrator] Unknown request.")
     print()
     print("Commands:")
-    print('  scaffold  ./.agents/orchestrator.py feature/CandleManager')
-    print('  scaffold  ./.agents/orchestrator.py feature/CandleManager --prompt drafts/my_prompt.md')
-    print('  implement ./.agents/orchestrator.py implement/CandleManager')
-    print('  modify    ./.agents/orchestrator.py modify/RatchetStrategyRun')
-    print('  bugfix    ./.agents/orchestrator.py bugfix/RatchetStrategyRun')
+    print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle')
+    print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle --prompt drafts/my_prompt.md')
+    print('  implement ./.agents/orchestrator.py implement/ManageCandle')
+    print('  modify    ./.agents/orchestrator.py modify/RunRatchetStrategy')
+    print('  bugfix    ./.agents/orchestrator.py bugfix/RunRatchetStrategy')
 
 
 def parse_args() -> argparse.Namespace:
@@ -419,7 +454,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "command",
         nargs="*",
-        help='e.g. feature/CandleManager / implement/CandleManager / modify/RatchetStrategyRun',
+        help='e.g. feature/ManageCandle / implement/ManageCandle / modify/RunRatchetStrategy',
     )
     parser.add_argument(
         "--prompt", "-p",
@@ -430,11 +465,11 @@ def parse_args() -> argparse.Namespace:
         parser.print_help()
         print()
         print("Commands:")
-        print('  scaffold  ./.agents/orchestrator.py feature/CandleManager')
-        print('  scaffold  ./.agents/orchestrator.py feature/CandleManager --prompt drafts/my_prompt.md')
-        print('  implement ./.agents/orchestrator.py implement/CandleManager')
-        print('  modify    ./.agents/orchestrator.py modify/RatchetStrategyRun')
-        print('  bugfix    ./.agents/orchestrator.py bugfix/RatchetStrategyRun')
+        print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle')
+        print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle --prompt drafts/my_prompt.md')
+        print('  implement ./.agents/orchestrator.py implement/ManageCandle')
+        print('  modify    ./.agents/orchestrator.py modify/RunRatchetStrategy')
+        print('  bugfix    ./.agents/orchestrator.py bugfix/RunRatchetStrategy')
         sys.exit(1)
     return args
 

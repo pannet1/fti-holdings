@@ -6,16 +6,16 @@ from pathlib import Path
 from traceback import print_exc
 from typing import Any, List
 
-from app.features.state.TradeSettingsLoad.Handler import TradeSettingsLoadHandler
-from app.features.state.SymbolsLoad.Handler import SymbolsLoadHandler
-from app.features.state.RunStateTrack.Handler import RunStateTrackHandler
-from app.features.broker.BrokerAuthenticate.Handler import BrokerAuthenticateHandler
-from app.features.strategy.RatchetStrategyRun.Handler import RatchetStrategyRunHandler
-from app.features.strategy.RatchetStrategyRun.Rachet import Rachet
-from app.features.order.OrderManager.Handler import OrderManagerHandler
-from app.features.state.HoldingsTracker.Handler import HoldingsTrackerHandler
-from app.features.state.HoldingsTracker.Schema import HoldingsRow
-from app.features.state.TradesJournal.Handler import TradesJournalHandler
+from app.features.state.LoadSettings.Handler import LoadSettingsHandler
+from app.features.state.LoadSymbols.Handler import LoadSymbolsHandler
+from app.features.state.TrackRunState.Handler import TrackRunStateHandler
+from app.features.broker.AuthenticateBroker.Handler import AuthenticateBrokerHandler
+from app.features.strategy.RunRatchetStrategy.Handler import RunRatchetStrategyHandler
+from app.features.strategy.RunRatchetStrategy.Rachet import Rachet
+from app.features.order.ManageOrder.Handler import ManageOrderHandler
+from app.features.state.TrackHoldings.Handler import TrackHoldingsHandler
+from app.features.state.TrackHoldings.Schema import HoldingsRow
+from app.features.state.JournalTrades.Handler import JournalTradesHandler
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +64,11 @@ def fetch_quotes(broker_session: Any, strategies: List[Rachet]) -> dict:
 
 
 def route_signal(
-    order_manager: OrderManagerHandler,
+    order_manager: ManageOrderHandler,
     signal: dict,
     broker_session: Any,
-    holdings_tracker: HoldingsTrackerHandler,
-    trades_journal: TradesJournalHandler,
+    holdings_tracker: TrackHoldingsHandler,
+    trades_journal: JournalTradesHandler,
 ) -> None:
     result = order_manager.execute(
         tradingsymbol=signal["tradingsymbol"],
@@ -100,13 +100,13 @@ def main():
     try:
         logger.info("=== FTI Holdings: Starting ===")
 
-        settings = TradeSettingsLoadHandler().execute()
+        settings = LoadSettingsHandler().execute()
         logger.info(f"Broker: {settings['broker']}")
         logger.info(f"Strategies found: {len(settings['strategies'])}")
 
         creds = load_auth_credentials(AUTH_FILE, settings["broker"])
         logger.info("Authenticating with broker...")
-        auth = BrokerAuthenticateHandler().execute(
+        auth = AuthenticateBrokerHandler().execute(
             userid=creds["userid"],
             password=creds["password"],
             totp_secret=creds["totp_secret"],
@@ -120,14 +120,14 @@ def main():
         broker_session = auth["session"]
         logger.info(f"Session authenticated: {auth['status']}")
 
-        symbols = SymbolsLoadHandler().execute(factory_dir=str(FACTORY_DIR))
+        symbols = LoadSymbolsHandler().execute(factory_dir=str(FACTORY_DIR))
         logger.info(f"Symbols loaded: {len(symbols.get('symbols', {}))}")
 
-        runner = RatchetStrategyRunHandler()
-        tracker = RunStateTrackHandler(data_dir=str(DATA_DIR))
-        order_mgr = OrderManagerHandler()
-        holdings_tracker = HoldingsTrackerHandler(data_dir=str(DATA_DIR))
-        trades_journal = TradesJournalHandler(data_dir=str(DATA_DIR))
+        runner = RunRatchetStrategyHandler()
+        tracker = TrackRunStateHandler(data_dir=str(DATA_DIR))
+        order_mgr = ManageOrderHandler()
+        holdings_tracker = TrackHoldingsHandler(data_dir=str(DATA_DIR))
+        trades_journal = JournalTradesHandler(data_dir=str(DATA_DIR))
 
         strategies = build_strategies(tracker)
         logger.info(f"Active strategies: {len(strategies)}")
