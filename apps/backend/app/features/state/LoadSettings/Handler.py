@@ -43,7 +43,7 @@ class LoadSettingsHandler:
         broker = self._parse_broker()
         global_settings = self._parse_global_settings()
         strategy_files = self._find_strategy_files()
-        strategies = [self._parse_strategy_file(f) for f in strategy_files]
+        strategies = [s for f in strategy_files if (s := self._parse_strategy_file(f)) is not None]
 
         return {
             "broker": broker,
@@ -96,7 +96,7 @@ class LoadSettingsHandler:
             if p.name not in exclude
         ]
 
-    def _parse_strategy_file(self, path: Path) -> StrategySettings:
+    def _parse_strategy_file(self, path: Path) -> StrategySettings | None:
         with open(path) as f:
             raw = yaml.safe_load(f)
         if isinstance(raw, dict):
@@ -105,6 +105,6 @@ class LoadSettingsHandler:
                 raw = candidates[0]
         try:
             return StrategySettings(**raw)
-        except ValidationError as e:
-            logger.error(f"Invalid strategy file {path.name}: {e}")
-            raise
+        except ValidationError:
+            logger.warning(f"Skipping {path.name}: not a valid strategy config")
+            return None
