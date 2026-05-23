@@ -38,8 +38,8 @@ class AuthenticateBrokerHandler:
             api_secret=api_secret,
             imei=imei,
             oauth_url=oauth_url,
-            access_token=access_token,
-            refresh_token=refresh_token,
+            access_token=None,
+            refresh_token=None,
             app_key_hash=app_key_hash,
         )
 
