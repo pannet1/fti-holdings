@@ -374,28 +374,11 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
     if prefix == "feature":
         domain, inferred = infer_domain_action(action)
         check_branch(inferred, "feature")
-        slice_dir = scaffold_new_feature(domain, inferred, prompt_content)
-        if prompt_content:
-            print(f"\n[Orchestrator] Prompt provided. Immediately implementing {inferred}...\n")
-            display = inferred
-            branch = current_branch()
-            task = f"Implement {display} per its spec.md"
-            ok = run_runner("backend", slice_dir, task)
-            if ok:
-                print(f"\n{'='*60}\nALL TESTS PASSED.\n")
-                print("Run these commands to commit and push:\n")
-                print(f"  git add {slice_dir}")
-                print(f'  git commit -m "feat: implement {inferred}"')
-                print(f"  git push origin {branch}\n")
-                print("Then open a Pull Request on GitHub:")
-                print(f"  https://github.com/pannet1/fti-holdings/pull/new/{branch}")
-                print("=" * 60)
-            else:
-                print(f"\n{'='*60}")
-                print("IMPLEMENTATION FAILED. The auto-QA loop exhausted its attempts.")
-                print("Copy the error output above and tell the AI:")
-                print(f'  "The auto-QA loop failed for {inferred}. Here is the output: ..."')
-                print("=" * 60)
+        scaffold_new_feature(domain, inferred, prompt_content)
+        print("=" * 60)
+        print("THEN RUN:")
+        print(f"  ./.agents/orchestrator.py implement/{inferred}")
+        print("=" * 60)
         return
 
     # --- implement X: run backend agent ---
@@ -548,5 +531,11 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
     request = " ".join(args.command)
-    prompt_content = read_prompt_file(args.prompt) if args.prompt else ""
+    prompt_content = ""
+    if args.prompt:
+        path = Path(args.prompt)
+        if path.suffix == ".md" and path.exists():
+            prompt_content = path.read_text().strip()
+        else:
+            prompt_content = args.prompt.strip()
     orchestrate(request, prompt_content)
