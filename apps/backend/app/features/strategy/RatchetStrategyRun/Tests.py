@@ -230,6 +230,30 @@ class TestRachetStrategy:
         signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
         assert signal2 is None
 
+    def test_refreshes_holdings_between_candles(self, tmp_path):
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+            candle=1,
+        )
+        signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        assert signal1 is not None
+        holdings_csv = tmp_path / "holdings.csv"
+        holdings_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 09:30,BSE,ITBEES,BUY,250.00,33,ratchet\n"
+        )
+        inst._last_check_time = 0.0
+        signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
+        assert signal2 is None
+
     def test_returns_none_when_holdings_exist(self, tmp_path):
         holdings_csv = tmp_path / "holdings.csv"
         holdings_csv.write_text(

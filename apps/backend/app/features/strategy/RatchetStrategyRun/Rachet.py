@@ -13,6 +13,7 @@ class Rachet:
     def __init__(self, data_dir: str = "data", **O_SETG: Any) -> None:
         self.strategy = O_SETG["strategy"]
         self.stop_time = O_SETG["stop_time"]
+        self._data_dir = data_dir
         self._removable = False
         self._tradingsymbol = O_SETG.get("tradingsymbol", "")
         self._exchange = O_SETG.get("exchange", "NSE")
@@ -31,15 +32,7 @@ class Rachet:
         self._loss_qty: int = self._x
         holdings_file = Path(data_dir) / "holdings.csv"
         if holdings_file.exists():
-            with open(holdings_file) as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row["tradingsymbol"] == self._tradingsymbol:
-                        self._holdings.append(HoldingsRow(**row))
-            if self._holdings:
-                total_value = sum(h.avg_price * h.quantity for h in self._holdings)
-                self._total_qty = sum(h.quantity for h in self._holdings)
-                self._avg_price = total_value / self._total_qty if self._total_qty > 0 else 0.0
+            self._read_holdings(holdings_file)
         else:
             trades_file = Path(data_dir) / "trades.csv"
             if trades_file.exists():
@@ -56,6 +49,22 @@ class Rachet:
                 self._win_qty = self._x * self._multiplier[max(0, last_idx - 1)]
                 self._loss_qty = self._x * self._multiplier[min(len(self._multiplier) - 1, last_idx + 1)]
 
+    def _read_holdings(self, holdings_file: Path) -> None:
+        self._holdings = []
+        self._total_qty = 0
+        self._avg_price = 0.0
+        if not holdings_file.exists():
+            return
+        with open(holdings_file) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row["tradingsymbol"] == self._tradingsymbol:
+                    self._holdings.append(HoldingsRow(**row))
+        if self._holdings:
+            total_value = sum(h.avg_price * h.quantity for h in self._holdings)
+            self._total_qty = sum(h.quantity for h in self._holdings)
+            self._avg_price = total_value / self._total_qty if self._total_qty > 0 else 0.0
+
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
         cmp = quotes.get(self._tradingsymbol, 0)
         logger.info(f"{self._tradingsymbol} LTP: {cmp}")
@@ -67,6 +76,8 @@ class Rachet:
         if now - self._last_check_time < self._candle_seconds:
             return None
         self._last_check_time = now
+
+        self._read_holdings(Path(self._data_dir) / "holdings.csv")
 
         if not self._holdings:
             if self._last_buy_price > 0:
