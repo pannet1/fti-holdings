@@ -55,7 +55,7 @@ dev = [{ name = "pytest", specifier = ">=8" }]
 [[package]]
 name = "broker-ai"
 version = "0.1.0"
-source = { git = "https://github.com/pannet1/broker-ai#b927f3ca9ecfa3578aa371e57bd1dd4f85ad68d5" }
+source = { git = "https://github.com/pannet1/broker-ai#8ae92a85548d78b2091fac7339dacfcc80533296" }
 dependencies = [
     { name = "delta-rest-client" },
     { name = "pandas" },
