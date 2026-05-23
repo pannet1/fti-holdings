@@ -10,12 +10,12 @@ Multiplier ladder: [1, 2, 3, 5, 8, 13, 21, 33, 55]
 Base unit = quantity of the first buy
 
 ## Buy Rules
-### On Start (no open positions)
-- No open positions exist -> check trade history
+### On Start (no open holdings)
+- No open holdings exist -> check trade history
 - If a prior buy exists, use the latest buy trade's quantity as the starting point
 - Otherwise, use the default quantity from settings
 
-### During Trading (open positions exist)
+### During Trading (open holdings exist)
 The multiplier moves based on market price vs last trade price:
 - Price rises 5% -> lower multiplier
 - Price falls 5% -> higher multiplier
