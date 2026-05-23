@@ -1,5 +1,6 @@
 import csv
 import logging
+import time
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -19,11 +20,15 @@ class Rachet:
         self._x = O_SETG.get("quantity", 33)
         self._multiplier: List[int] = O_SETG.get("multiplier", [1])
         self._perc: float = O_SETG.get("perc", 0.05)
+        self._candle_seconds: int = O_SETG.get("candle", 1) * 60
+        self._last_check_time: float = 0.0
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
         self._avg_price: float = 0.0
         self._last_buy_price: float = 0.0
         self._last_buy_qty: int = self._x
+        self._win_qty: int = self._x
+        self._loss_qty: int = self._x
         holdings_file = Path(data_dir) / "holdings.csv"
         if holdings_file.exists():
             with open(holdings_file) as f:
@@ -44,6 +49,12 @@ class Rachet:
                         if row["tradingsymbol"] == self._tradingsymbol and row["side"] == "BUY":
                             self._last_buy_price = float(row["avg_price"])
                             self._last_buy_qty = int(row["quantity"])
+            if self._last_buy_price > 0:
+                ratio = self._last_buy_qty / self._x
+                closest = min(self._multiplier, key=lambda m: abs(m - ratio))
+                last_idx = self._multiplier.index(closest)
+                self._win_qty = self._x * self._multiplier[max(0, last_idx - 1)]
+                self._loss_qty = self._x * self._multiplier[min(len(self._multiplier) - 1, last_idx + 1)]
 
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
         cmp = quotes.get(self._tradingsymbol, 0)
@@ -52,20 +63,19 @@ class Rachet:
         if cmp <= 0:
             return None
 
+        now = time.time()
+        if now - self._last_check_time < self._candle_seconds:
+            return None
+        self._last_check_time = now
+
         if not self._holdings:
             if self._last_buy_price > 0:
-                ratio = self._last_buy_qty / self._x
-                closest = min(self._multiplier, key=lambda m: abs(m - ratio))
-                last_idx = self._multiplier.index(closest)
-                if cmp >= self._last_buy_price * (1 + self._perc):
-                    idx = max(0, last_idx - 1)
-                elif cmp <= self._last_buy_price * (1 - self._perc):
-                    idx = min(len(self._multiplier) - 1, last_idx + 1)
+                if cmp > self._last_buy_price:
+                    qty = self._win_qty
                 else:
-                    idx = last_idx
-                qty = self._x * self._multiplier[idx]
+                    qty = self._loss_qty
             else:
-                qty = self._last_buy_qty
+                qty = self._x
 
             return {
                 "action": "BUY",

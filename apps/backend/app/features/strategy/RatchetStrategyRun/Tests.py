@@ -167,7 +167,7 @@ class TestRachetStrategy:
         signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
-        assert signal["quantity"] == 99
+        assert signal["quantity"] == 66
 
     def test_init_buy_reduces_multiplier_when_winning(self, tmp_path):
         trades_csv = tmp_path / "trades.csv"
@@ -212,6 +212,23 @@ class TestRachetStrategy:
         assert signal is not None
         assert signal["action"] == "BUY"
         assert signal["quantity"] == 99
+
+    def test_candle_timing_skips_second_call(self):
+        inst = Rachet(
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+            candle=1,
+        )
+        signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        assert signal1 is not None
+        signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
+        assert signal2 is None
 
     def test_returns_none_when_holdings_exist(self, tmp_path):
         holdings_csv = tmp_path / "holdings.csv"
