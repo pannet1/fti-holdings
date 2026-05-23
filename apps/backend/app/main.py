@@ -17,6 +17,7 @@ from app.features.order.Handler import ManageOrderHandler
 from app.features.state.TrackHoldings.Handler import TrackHoldingsHandler
 from app.features.state.TrackHoldings.Schema import HoldingsRow
 from app.features.state.JournalTrades.Handler import JournalTradesHandler
+from app.features.market.StreamQuotes.Handler import StreamQuotesHandler
 
 logger = logging.getLogger(__name__)
 
@@ -47,23 +48,6 @@ def build_strategies(tracker: Any) -> List[Rachet]:
         except Exception as e:
             logger.error(f"Failed to load strategy: {e}")
     return instances
-
-
-def fetch_quotes(broker_session: Any, strategies: List[Rachet]) -> dict:
-    quotes: dict = {}
-    for strat in strategies:
-        token = strat._token
-        exchange = strat._exchange
-        if token and exchange:
-            try:
-                result = broker_session.get_quotes(exchange, token)
-                quotes[strat._tradingsymbol] = result
-            except Exception as e:
-                logger.error(f"Quote fetch failed for {strat._tradingsymbol}: {e}")
-                quotes[strat._tradingsymbol] = 0
-        else:
-            quotes[strat._tradingsymbol] = 0
-    return quotes
 
 
 def route_signal(
@@ -144,9 +128,28 @@ def main():
         strategies = build_strategies(tracker)
         logger.info(f"Active strategies: {len(strategies)}")
 
+        if strategies:
+            tokens = [f"{s._exchange}|{s._token}" for s in strategies]
+            symbol_map = {s._tradingsymbol: f"{s._exchange}|{s._token}" for s in strategies}
+            stream = StreamQuotesHandler(
+                broker_session=broker_session,
+                tokens=tokens,
+                symbol_map=symbol_map,
+            )
+            stream.start()
+            quotes = stream.wait_for_quotes(
+                [s._tradingsymbol for s in strategies], timeout=15.0
+            )
+            logger.info(f"Initial quotes: {quotes}")
+        else:
+            stream = None
+
         while True:
             try:
-                quotes = fetch_quotes(broker_session, strategies)
+                if stream:
+                    quotes = stream.get_quotes([s._tradingsymbol for s in strategies])
+                else:
+                    quotes = {}
                 logger.info(f"Tick: {len(quotes)} quotes, {len(strategies)} strategies active")
 
                 for strategy in strategies:
@@ -159,6 +162,8 @@ def main():
 
             except KeyboardInterrupt:
                 logger.info("Shutdown requested")
+                if stream:
+                    stream.close()
                 break
 
         logger.info("=== FTI Holdings: Done ===")
