@@ -7,3 +7,6 @@ finvasia:
   imei: ""
   oauth_url: ""
   vendor_code: ""
+  access_token: ""
+  refresh_token: ""
+  app_key_hash: ""

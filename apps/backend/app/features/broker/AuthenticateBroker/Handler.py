@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,17 +18,15 @@ class AuthenticateBrokerHandler:
         oauth_url: str,
         token_path: str,
         vendor_code: str = "",
+        access_token: Optional[str] = None,
+        refresh_token: Optional[str] = None,
+        app_key_hash: Optional[str] = None,
     ) -> dict:
         if not userid or not password or not totp_secret:
             raise ValueError(
                 "Missing required credentials. "
                 "Check apps/backend/data/auth.yaml has userid, password, and totp_secret."
             )
-
-        token_file = Path(token_path)
-        if token_file.exists():
-            logger.info(f"Session token found at {token_path}, attempting reuse")
-            return {"status": "token_exists", "userid": userid, "token_path": token_path}
 
         from broker_ai.finvasia.finvasia import Finvasia
         fin = Finvasia(
@@ -39,11 +38,19 @@ class AuthenticateBrokerHandler:
             api_secret=api_secret,
             imei=imei,
             oauth_url=oauth_url,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            app_key_hash=app_key_hash,
         )
 
-        fin.authenticate()
+        result = fin.authenticate()
+        if not result:
+            raise RuntimeError(f"Authentication failed for {userid}")
 
+        token_file = Path(token_path)
         token_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(token_file, "w") as f:
+            f.write(result.get("access_token", ""))
         logger.info(f"Authentication successful for {userid}")
 
         return {"status": "authenticated", "userid": userid, "session": fin}

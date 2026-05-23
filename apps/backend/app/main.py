@@ -118,6 +118,9 @@ def main():
             oauth_url=creds.get("oauth_url", ""),
             token_path=str(DATA_DIR / f"{creds['userid']}.txt"),
             vendor_code=creds.get("vendor_code", ""),
+            access_token=creds.get("access_token"),
+            refresh_token=creds.get("refresh_token"),
+            app_key_hash=creds.get("app_key_hash"),
         )
         broker_session = auth["session"]
         logger.info(f"Session authenticated: {auth['status']}")
