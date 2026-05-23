@@ -276,27 +276,12 @@ def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
     return slice_dir
 
 
-def amend_spec(feature_dir: Path, heading: str, instruction: str, revert_msg: str, next_instruction: str, branch_prefix: str, feature_name: str = "") -> None:
-    """Print spec amendment docs for modify/bugfix. Shared by both workflows."""
+def amend_spec(feature_dir: Path, heading: str, branch_prefix: str, feature_name: str = "") -> None:
     display = feature_name or feature_dir.name
-    spec_path = feature_dir / "spec.md"
-    existing = read_file(spec_path) if spec_path.exists() else "(no spec.md found)"
-    rel_path = spec_path.relative_to(REPO_ROOT)
-    print(f"\n{'='*60}\n{heading} for {display}\n{'='*60}\n")
-    print(f"Current spec.md at {spec_path}:")
-    print(existing)
-    print(f"\n{instruction}\n")
-    print(f"{'='*60}")
-    print("Verify the diff before implementing:")
-    print(f"\n  git diff {rel_path}\n")
-    print(f"{revert_msg}")
-    print(f"  git checkout -- {rel_path}")
-    print(f"  ./.agents/orchestrator.py {branch_prefix}/{display} --prompt drafts/clearer_prompt.md\n")
-    print(f"{next_instruction}")
-    print(f"  nano {spec_path}\n")
-    print("THEN RUN:")
-    print(f'  ./.agents/orchestrator.py implement/{display}')
-    print(f"{'='*60}")
+    print(f"\n{'='*60}\n{heading} for {display}")
+    print(f"Spec amended. Run implement when ready:\n")
+    print(f"  ./.agents/orchestrator.py implement/{display}")
+    print("=" * 60)
 
 
 def resolve_change_prompt(rest: str, prompt_content: str, feature_name: str, prefix: str) -> str:
@@ -456,9 +441,6 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         amend_spec(
             feature_dir,
             heading="CONTRACT AMENDMENT",
-            instruction="Review and edit the spec.md above with your changes, or edit directly with your editor:",
-            revert_msg="If the AI miswrote the contract, revert and re-run with a clearer prompt:",
-            next_instruction="NEXT: Edit the spec.md above with your changes, or edit directly with your editor:",
             branch_prefix="modify",
             feature_name=feature_name,
         )
@@ -477,9 +459,6 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         amend_spec(
             feature_dir,
             heading="DEFECT DOCUMENTATION",
-            instruction="Add a 'Defect Resolution' section to the spec.md documenting the broken logic and the specific edge case that must be addressed.",
-            revert_msg="If the AI miswrote the defect documentation, revert and re-run:",
-            next_instruction="NEXT: Add the '## Defect Resolution' section to the spec.md above, or edit directly with your editor:",
             branch_prefix="bugfix",
             feature_name=feature_name,
         )
