@@ -1,4 +1,5 @@
 import logging
+import sys
 import time
 import yaml
 from datetime import datetime
@@ -100,6 +101,12 @@ def route_signal(
 
 def main():
     try:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s %(message)s",
+            stream=sys.stdout,
+            force=True,
+        )
         logger.info("=== FTI Holdings: Starting ===")
 
         settings = LoadSettingsHandler().execute()
@@ -140,6 +147,7 @@ def main():
         while True:
             try:
                 quotes = fetch_quotes(broker_session, strategies)
+                logger.info(f"Tick: {len(quotes)} quotes, {len(strategies)} strategies active")
 
                 for strategy in strategies:
                     signal = runner.execute_tick(strategy=strategy, quotes=quotes)
