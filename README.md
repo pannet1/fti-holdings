@@ -13,7 +13,7 @@ Base unit = quantity of the first batch bought
 ## Buy Rules
 ### On Start (no open positions)
 - No open positions exist -> check trade history
-- If a prior buy exists, use its quantity as the starting point
+- If a prior buy exists, use the latest buy trade's quantity as the starting point
 - Otherwise, use the default quantity from settings
 
 ### During Trading (open positions exist)

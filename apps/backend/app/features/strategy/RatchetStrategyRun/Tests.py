@@ -113,6 +113,29 @@ class TestRachetStrategy:
         assert inst._last_buy_price == 0.0
         assert inst._last_buy_qty == 33
 
+    def test_uses_trades_csv_when_no_holdings(self, tmp_path):
+        trades_csv = tmp_path / "trades.csv"
+        trades_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 09:30,BSE,ITBEES,BUY,245.00,66,ratchet\n"
+            "2026-05-22 10:15,BSE,ITBEES,BUY,244.50,99,ratchet\n"
+        )
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+        )
+        assert inst._total_qty == 0
+        assert inst._holdings == []
+        assert inst._last_buy_price == 244.50
+        assert inst._last_buy_qty == 99
+
     def test_run_returns_none_for_hold_by_default(self):
         inst = Rachet(
             strategy="ratchet",
