@@ -19,9 +19,10 @@ from app.features.state.JournalTrades.Handler import JournalTradesHandler
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = ROOT / "data"
-FACTORY_DIR = ROOT / "apps/backend/app/features/factory"
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = BACKEND_ROOT.parent.parent
+DATA_DIR = REPO_ROOT / "data"
+FACTORY_DIR = BACKEND_ROOT / "factory"
 AUTH_FILE = DATA_DIR / "auth.yaml"
 
 

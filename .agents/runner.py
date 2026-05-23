@@ -91,7 +91,7 @@ def call_opencode(prompt: str) -> str:
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
-        timeout=180,
+        timeout=600,
     )
     if result.returncode != 0:
         print(f"[Runner] opencode run failed:\n{result.stderr}", file=sys.stderr)
@@ -149,6 +149,14 @@ def run_pytest(test_path: Path) -> tuple[bool, str]:
 
 
 def auto_backend(target: Path, prompt: str) -> bool:
+    test_file = target / "Tests.py"
+    if test_file.exists():
+        passed, output = run_pytest(test_file)
+        if passed:
+            print(f"[Runner] Tests already passing. Skipping opencode call.")
+            return True
+        print(f"[Runner] Existing tests failing. Will re-implement.")
+
     print(f"[Runner] Calling opencode (Backend Agent)...")
     response = call_opencode(prompt)
     files = extract_code_blocks(response)

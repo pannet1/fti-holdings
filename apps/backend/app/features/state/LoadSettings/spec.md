@@ -155,3 +155,7 @@ The `LoadSettingsHandler` follows a three-phase bootstrapping sequence:
 ## Code Standards
 
 All code must use type annotations per PEP 484 (function signatures + module-level variables).
+
+## Modification Request
+
+the factory path and data path are changed. please ensure that settings are loaded correctly

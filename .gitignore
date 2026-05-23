@@ -159,3 +159,6 @@ drafts/
 # monorepo: nested lockfiles (root lockfile only)
 apps/*/uv.lock
 packages/*/uv.lock
+
+# runtime config + secrets
+data/

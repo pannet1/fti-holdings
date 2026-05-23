@@ -1,6 +1,5 @@
 import logging
 import shutil
-import os
 from pathlib import Path
 from typing import List
 
@@ -11,15 +10,15 @@ from .Schema import GlobalSettings, StrategySettings
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent.parent
-DATA_DIR = ROOT / "data"
-FACTORY_DIR = ROOT / "apps/backend/app/features/factory"
+BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+REPO_ROOT = BACKEND_ROOT.parent.parent
+DATA_DIR = REPO_ROOT / "data"
+FACTORY_DIR = BACKEND_ROOT / "factory"
 
 
 class LoadSettingsHandler:
 
     def __init__(self):
-        self.ROOT = ROOT
         self.DATA_DIR = DATA_DIR
         self.FACTORY_DIR = FACTORY_DIR
         self.SETTINGS_FILE = DATA_DIR / "settings.yml"
@@ -65,6 +64,10 @@ class LoadSettingsHandler:
 
     def _scaffold_templates(self, missing: List[Path]):
         for tmpl in missing:
+            if not tmpl.exists():
+                msg = f"Factory template not found: {tmpl}. Cannot scaffold config files."
+                logger.critical(msg)
+                raise RuntimeError(msg)
             dst = self.DATA_DIR / tmpl.name
             shutil.copy2(str(tmpl), str(dst))
             logger.info(f"Copied {tmpl.name} -> {dst}")
@@ -96,8 +99,10 @@ class LoadSettingsHandler:
     def _parse_strategy_file(self, path: Path) -> StrategySettings:
         with open(path) as f:
             raw = yaml.safe_load(f)
-        if isinstance(raw, dict) and len(raw) == 1:
-            raw = list(raw.values())[0]
+        if isinstance(raw, dict):
+            candidates = [v for v in raw.values() if isinstance(v, dict) and "strategy" in v]
+            if candidates:
+                raw = candidates[0]
         try:
             return StrategySettings(**raw)
         except ValidationError as e:
