@@ -11,9 +11,9 @@ Base unit = quantity of the first buy
 
 ## Buy Rules
 ### On Start (no open holdings)
-- No open holdings exist -> check trade history
-- If a prior buy exists, use the latest buy trade's quantity as the starting point
-- Otherwise, use the default quantity from settings
+- Determine win_qty and loss_qty from trade history
+- If no prior trade exists, both default to the configured quantity
+- On run: if winning (price up) use win_qty, if losing (price down) use loss_qty
 
 ### During Trading (open holdings exist)
 The multiplier moves based on market price vs last trade price:
@@ -27,8 +27,6 @@ Step 1: Buy 33 @ 100 (multiplier 1)
 Step 2: Price drops to 95. Buy 66 (multiplier 2)
 Step 3: Price drops to 90.25. Buy 99 (multiplier 3)
 Step 4: Price rises to 94.76. Buy 66 (multiplier 2)
-
-Each buy is sold when it reaches 5% profit from its buy price.
 
 ## Trade Records
 Open holdings and completed trades are recorded to track state
