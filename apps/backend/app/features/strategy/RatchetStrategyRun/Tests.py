@@ -169,6 +169,50 @@ class TestRachetStrategy:
         assert signal["action"] == "BUY"
         assert signal["quantity"] == 99
 
+    def test_init_buy_reduces_multiplier_when_winning(self, tmp_path):
+        trades_csv = tmp_path / "trades.csv"
+        trades_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 10:15,BSE,ITBEES,BUY,245.00,66,ratchet\n"
+        )
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+        )
+        signal = inst.run(trades=None, quotes={"ITBEES": 260.00}, positions=None)
+        assert signal is not None
+        assert signal["action"] == "BUY"
+        assert signal["quantity"] == 33
+
+    def test_init_buy_increases_multiplier_when_losing(self, tmp_path):
+        trades_csv = tmp_path / "trades.csv"
+        trades_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 10:15,BSE,ITBEES,BUY,245.00,66,ratchet\n"
+        )
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+        )
+        signal = inst.run(trades=None, quotes={"ITBEES": 230.00}, positions=None)
+        assert signal is not None
+        assert signal["action"] == "BUY"
+        assert signal["quantity"] == 99
+
     def test_returns_none_when_holdings_exist(self, tmp_path):
         holdings_csv = tmp_path / "holdings.csv"
         holdings_csv.write_text(
