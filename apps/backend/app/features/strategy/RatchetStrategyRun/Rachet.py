@@ -100,4 +100,14 @@ class Rachet:
                 "price": cmp,
             }
 
+        target = self._avg_price * (1.0 + self._perc)
+        if cmp >= target:
+            return {
+                "action": "SELL",
+                "tradingsymbol": self._tradingsymbol,
+                "exchange": self._exchange,
+                "quantity": self._x,
+                "price": cmp,
+            }
+
         return None

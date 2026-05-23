@@ -274,6 +274,30 @@ class TestRachetStrategy:
         signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal is None
 
+    def test_sells_when_holdings_reach_target_profit(self, tmp_path):
+        holdings_csv = tmp_path / "holdings.csv"
+        holdings_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 09:30,BSE,ITBEES,BUY,245.00,33,ratchet\n"
+        )
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+        )
+        target = 245.00 * 1.05
+        signal = inst.run(trades=None, quotes={"ITBEES": target}, positions=None)
+        assert signal is not None
+        assert signal["action"] == "SELL"
+        assert signal["quantity"] == 33
+        assert signal["price"] == target
+
     def test_run_returns_none_on_zero_quote(self):
         inst = Rachet(
             strategy="ratchet",
