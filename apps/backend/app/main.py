@@ -115,7 +115,7 @@ def main():
             api_key=creds.get("api_key", ""),
             api_secret=creds.get("api_secret", ""),
             imei=creds.get("imei", ""),
-            oauth_url=creds.get("oauth_url", ""),
+            oauth_url=creds.get("url", ""),
             token_path=str(DATA_DIR / f"{creds['userid']}.txt"),
             vendor_code=creds.get("vendor_code", ""),
         )
