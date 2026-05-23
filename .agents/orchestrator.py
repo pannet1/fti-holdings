@@ -256,33 +256,23 @@ def check_branch(action: str, prefix: str = "feature") -> str:
 
 def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
     slice_dir = FEATURES_DIR / domain / action
+    slice_dir.mkdir(parents=True, exist_ok=True)
+
     overview_text = format_spec_overview(overview)
     spec = SPEC_TEMPLATE.format(
         domain_title=domain.title(),
         action=action,
         overview=overview_text,
     ).rstrip("\n")
-    print(f"\n{'='*60}\nSTEP: Create the feature directory and blank files\n{'='*60}\n")
-    print("Run these commands:\n")
-    print(f"  mkdir -p {slice_dir}\n")
-    print(f"  cat << 'SPECEOF' > {slice_dir / 'spec.md'}\n")
-    print(f"{spec}\n")
-    print("  SPECEOF\n")
+    (slice_dir / "spec.md").write_text(spec)
+
     for fname, template in CODE_TEMPLATES.items():
         content = template.format(action=action).lstrip("\n")
-        print(f"  cat << 'EOF' > {slice_dir / fname}")
-        print(content)
-        print("  EOF")
-        print()
-    print(f"  touch {slice_dir / '__init__.py'}")
-    print()
-    print("=" * 60)
-    print("NEXT: Open the spec.md file in your editor and fill in the requirements.")
-    print(f"      nano {slice_dir / 'spec.md'}")
-    print()
-    print("THEN RUN:")
-    print(f"  ./.agents/orchestrator.py implement/{action}")
-    print("=" * 60)
+        (slice_dir / fname).write_text(content)
+
+    (slice_dir / "__init__.py").touch()
+
+    print(f"\nScaffolded new feature: {domain}/{action}\n")
     return slice_dir
 
 
@@ -296,9 +286,6 @@ def amend_spec(feature_dir: Path, heading: str, instruction: str, revert_msg: st
     print(f"Current spec.md at {spec_path}:")
     print(existing)
     print(f"\n{instruction}\n")
-    print(f"  cat << 'SPECEOF' > {spec_path}")
-    print(existing)
-    print("  SPECEOF\n")
     print(f"{'='*60}")
     print("Verify the diff before implementing:")
     print(f"\n  git diff {rel_path}\n")
@@ -387,7 +374,28 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
     if prefix == "feature":
         domain, inferred = infer_domain_action(action)
         check_branch(inferred, "feature")
-        scaffold_new_feature(domain, inferred, prompt_content)
+        slice_dir = scaffold_new_feature(domain, inferred, prompt_content)
+        if prompt_content:
+            print(f"\n[Orchestrator] Prompt provided. Immediately implementing {inferred}...\n")
+            display = inferred
+            branch = current_branch()
+            task = f"Implement {display} per its spec.md"
+            ok = run_runner("backend", slice_dir, task)
+            if ok:
+                print(f"\n{'='*60}\nALL TESTS PASSED.\n")
+                print("Run these commands to commit and push:\n")
+                print(f"  git add {slice_dir}")
+                print(f'  git commit -m "feat: implement {inferred}"')
+                print(f"  git push origin {branch}\n")
+                print("Then open a Pull Request on GitHub:")
+                print(f"  https://github.com/pannet1/fti-holdings/pull/new/{branch}")
+                print("=" * 60)
+            else:
+                print(f"\n{'='*60}")
+                print("IMPLEMENTATION FAILED. The auto-QA loop exhausted its attempts.")
+                print("Copy the error output above and tell the AI:")
+                print(f'  "The auto-QA loop failed for {inferred}. Here is the output: ..."')
+                print("=" * 60)
         return
 
     # --- implement X: run backend agent ---
@@ -464,9 +472,9 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         amend_spec(
             feature_dir,
             heading="CONTRACT AMENDMENT",
-            instruction="Review and edit the spec.md with your changes, then run these commands to overwrite it with the amended contract:",
+            instruction="Review and edit the spec.md above with your changes, or edit directly with your editor:",
             revert_msg="If the AI miswrote the contract, revert and re-run with a clearer prompt:",
-            next_instruction="NEXT: Edit the spec.md above with your changes, run the cat command, or edit directly with your editor:",
+            next_instruction="NEXT: Edit the spec.md above with your changes, or edit directly with your editor:",
             branch_prefix="modify",
             feature_name=feature_name,
         )
@@ -485,9 +493,9 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         amend_spec(
             feature_dir,
             heading="DEFECT DOCUMENTATION",
-            instruction="Add a 'Defect Resolution' section to the spec.md documenting the broken logic and the specific edge case that must be addressed. Then run these commands to overwrite it with the amended contract:",
+            instruction="Add a 'Defect Resolution' section to the spec.md documenting the broken logic and the specific edge case that must be addressed.",
             revert_msg="If the AI miswrote the defect documentation, revert and re-run:",
-            next_instruction="NEXT: Add the '## Defect Resolution' section to the spec.md above, then run the cat command, or edit directly with your editor:",
+            next_instruction="NEXT: Add the '## Defect Resolution' section to the spec.md above, or edit directly with your editor:",
             branch_prefix="bugfix",
             feature_name=feature_name,
         )
