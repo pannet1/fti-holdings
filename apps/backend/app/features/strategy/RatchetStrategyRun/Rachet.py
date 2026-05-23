@@ -52,4 +52,13 @@ class Rachet:
         if cmp <= 0:
             return None
 
+        if not self._holdings:
+            return {
+                "action": "BUY",
+                "tradingsymbol": self._tradingsymbol,
+                "exchange": self._exchange,
+                "quantity": self._last_buy_qty,
+                "price": cmp,
+            }
+
         return None

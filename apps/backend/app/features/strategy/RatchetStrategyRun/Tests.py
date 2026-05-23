@@ -30,21 +30,8 @@ class TestRatchetStrategyRunHandler:
         assert result["strategy"] == "ratchet"
         assert result["tradingsymbol"] == "ITBEES"
 
-    def test_execute_tick_returns_none_for_hold(self):
+    def test_execute_tick_returns_buy_signal_when_no_holdings(self):
         handler = RatchetStrategyRunHandler()
-        result = handler.execute(
-            config={
-                "strategy": "ratchet",
-                "base": "ITBEES",
-                "tradingsymbol": "ITBEES",
-                "exchange": "BSE",
-                "quantity": 33,
-                "start_time": "09:30",
-                "stop_time": "15:00",
-                "multiplier": [1, 2, 3, 5, 8, 13, 21, 33, 55],
-                "perc": 0.05,
-            },
-        )
         strategy = Rachet(
             strategy="ratchet",
             base="ITBEES",
@@ -57,7 +44,9 @@ class TestRatchetStrategyRunHandler:
             perc=0.05,
         )
         signal = handler.execute_tick(strategy=strategy, quotes={"ITBEES": 245.50})
-        assert signal is None
+        assert signal is not None
+        assert signal["action"] == "BUY"
+        assert signal["quantity"] == 33
 
     def test_load_strategies_returns_empty_on_bad_config(self):
         handler = RatchetStrategyRunHandler()
@@ -136,7 +125,7 @@ class TestRachetStrategy:
         assert inst._last_buy_price == 244.50
         assert inst._last_buy_qty == 99
 
-    def test_run_returns_none_for_hold_by_default(self):
+    def test_init_buy_when_no_holdings(self):
         inst = Rachet(
             strategy="ratchet",
             base="ITBEES",
@@ -151,6 +140,53 @@ class TestRachetStrategy:
         )
         quotes = {"ITBEES": 245.50, "MOTHERSON": 180.75}
         signal = inst.run(trades=None, quotes=quotes, positions=None)
+        assert signal is not None
+        assert signal["action"] == "BUY"
+        assert signal["tradingsymbol"] == "ITBEES"
+        assert signal["exchange"] == "BSE"
+        assert signal["quantity"] == 33
+        assert signal["price"] == 245.50
+
+    def test_init_buy_uses_last_buy_qty_from_trades(self, tmp_path):
+        trades_csv = tmp_path / "trades.csv"
+        trades_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 10:15,BSE,ITBEES,BUY,244.50,99,ratchet\n"
+        )
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+        )
+        signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        assert signal is not None
+        assert signal["action"] == "BUY"
+        assert signal["quantity"] == 99
+
+    def test_returns_none_when_holdings_exist(self, tmp_path):
+        holdings_csv = tmp_path / "holdings.csv"
+        holdings_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 09:30,BSE,ITBEES,BUY,245.00,33,ratchet\n"
+        )
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+        )
+        signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal is None
 
     def test_run_returns_none_on_zero_quote(self):
