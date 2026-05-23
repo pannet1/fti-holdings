@@ -1,7 +1,7 @@
 import pytest
 
 from .Handler import RunRatchetStrategyHandler
-from .Rachet import Rachet
+from .Ratchet import Rachet
 
 
 class TestRunRatchetStrategyHandler:

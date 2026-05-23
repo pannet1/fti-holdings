@@ -11,16 +11,17 @@ from app.features.state.LoadSymbols.Handler import LoadSymbolsHandler
 from app.features.state.TrackRunState.Handler import TrackRunStateHandler
 from app.features.broker.AuthenticateBroker.Handler import AuthenticateBrokerHandler
 from app.features.strategy.RunRatchetStrategy.Handler import RunRatchetStrategyHandler
-from app.features.strategy.RunRatchetStrategy.Rachet import Rachet
-from app.features.order.ManageOrder.Handler import ManageOrderHandler
+from app.features.strategy.RunRatchetStrategy.Ratchet import Rachet
+from app.features.order.Handler import ManageOrderHandler
 from app.features.state.TrackHoldings.Handler import TrackHoldingsHandler
 from app.features.state.TrackHoldings.Schema import HoldingsRow
 from app.features.state.JournalTrades.Handler import JournalTradesHandler
 
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path("data")
-FACTORY_DIR = Path("factory")
+ROOT = Path(__file__).resolve().parent.parent.parent
+DATA_DIR = ROOT / "data"
+FACTORY_DIR = ROOT / "apps/backend/app/features/factory"
 AUTH_FILE = DATA_DIR / "auth.yaml"
 
 

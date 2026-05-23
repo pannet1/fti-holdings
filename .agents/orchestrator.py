@@ -181,14 +181,33 @@ def infer_domain_action(feature_name: str) -> tuple[str, str]:
 
 def find_feature_dir(request_feature: str) -> Optional[Path]:
     lower = request_feature.lower()
+
+    # Check KNOWN_FEATURES first for flat features (domain == feature dir)
+    if request_feature in KNOWN_FEATURES:
+        domain = KNOWN_FEATURES[request_feature]
+        domain_dir = FEATURES_DIR / domain
+        if domain_dir.is_dir():
+            # Check if it's a flat feature (Handler.py directly in domain dir)
+            if (domain_dir / "Handler.py").exists():
+                return domain_dir
+            # Otherwise look for a subdirectory
+            feature_dir = domain_dir / request_feature
+            if feature_dir.is_dir():
+                return feature_dir
+
+    # Filesystem scan: match subdirectories OR flat feature domain dirs
     for domain_dir in FEATURES_DIR.iterdir():
         if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
             continue
-        for feature_dir in domain_dir.iterdir():
-            if not feature_dir.is_dir() or feature_dir.name.startswith("_"):
-                continue
-            if feature_dir.name.lower() in lower or lower in feature_dir.name.lower():
-                return feature_dir
+        # Check if domain dir itself is a flat feature matching the request
+        if domain_dir.name.lower() in lower or lower in domain_dir.name.lower():
+            if (domain_dir / "Handler.py").exists():
+                return domain_dir
+        # Check subdirectory features
+        for entry in domain_dir.iterdir():
+            if entry.is_dir() and not entry.name.startswith("_"):
+                if entry.name.lower() in lower or lower in entry.name.lower():
+                    return entry
     return None
 
 
@@ -267,12 +286,13 @@ def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
     return slice_dir
 
 
-def amend_spec(feature_dir: Path, heading: str, instruction: str, revert_msg: str, next_instruction: str, branch_prefix: str) -> None:
+def amend_spec(feature_dir: Path, heading: str, instruction: str, revert_msg: str, next_instruction: str, branch_prefix: str, feature_name: str = "") -> None:
     """Print spec amendment docs for modify/bugfix. Shared by both workflows."""
+    display = feature_name or feature_dir.name
     spec_path = feature_dir / "spec.md"
     existing = read_file(spec_path) if spec_path.exists() else "(no spec.md found)"
     rel_path = spec_path.relative_to(REPO_ROOT)
-    print(f"\n{'='*60}\n{heading} for {feature_dir.name}\n{'='*60}\n")
+    print(f"\n{'='*60}\n{heading} for {display}\n{'='*60}\n")
     print(f"Current spec.md at {spec_path}:")
     print(existing)
     print(f"\n{instruction}\n")
@@ -284,11 +304,11 @@ def amend_spec(feature_dir: Path, heading: str, instruction: str, revert_msg: st
     print(f"\n  git diff {rel_path}\n")
     print(f"{revert_msg}")
     print(f"  git checkout -- {rel_path}")
-    print(f"  ./.agents/orchestrator.py {branch_prefix}/{feature_dir.name} --prompt drafts/clearer_prompt.md\n")
+    print(f"  ./.agents/orchestrator.py {branch_prefix}/{display} --prompt drafts/clearer_prompt.md\n")
     print(f"{next_instruction}")
     print(f"  nano {spec_path}\n")
     print("THEN RUN:")
-    print(f'  ./.agents/orchestrator.py implement/{feature_dir.name}')
+    print(f'  ./.agents/orchestrator.py implement/{display}')
     print(f"{'='*60}")
 
 
@@ -317,16 +337,17 @@ def run_runner(persona_key: str, target: Path, task: str, error_path: Optional[P
 
 def orchestrate(request: str, prompt_content: str = "") -> None:
     cmd = request.strip().split(None, 1)
-    verb = cmd[0].lower() if cmd else ""
+    verb = cmd[0] if cmd else ""
     rest = cmd[1] if len(cmd) > 1 else ""
 
-    # Parse slash-format: feature/X, modify/X, bugfix/X, implement X
+    # Parse slash-format: feature/X, modify/X, bugfix/X, implement/X
+    # Lowercase only the command prefix, preserve feature name casing
     if "/" in verb:
-        prefix, action = verb.split("/", 1)
-        prefix = prefix.lower()
+        raw_prefix, action = verb.split("/", 1)
+        prefix = raw_prefix.lower()
         action = action.strip()
     else:
-        prefix = verb
+        prefix = verb.lower()
         action = rest.strip()
 
     # --- feature/X: scaffold new feature ---
@@ -338,16 +359,19 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
 
     # --- implement X: run backend agent ---
     if prefix == "implement":
-        feature_name = action or rest
-        feature_dir = find_feature_dir(feature_name)
+        user_feature_name = action or rest
+        feature_dir = find_feature_dir(user_feature_name)
         if not feature_dir:
-            print(f"[Orchestrator] Feature not found: {feature_name}.")
-            print(f"  First run: ./.agents/orchestrator.py feature/{feature_name}")
+            print(f"[Orchestrator] Feature not found: {user_feature_name}.")
+            print(f"  First run: ./.agents/orchestrator.py feature/{user_feature_name}")
             return
         if not (feature_dir / "spec.md").exists():
             print(f"[Orchestrator] No spec.md found.")
-            print(f"  First run: ./.agents/orchestrator.py feature/{feature_name}")
+            print(f"  First run: ./.agents/orchestrator.py feature/{user_feature_name}")
             return
+
+        # Prefer the KNOWN_FEATURES canonical name if available for display
+        display = user_feature_name
 
         branch = current_branch()
         if branch == "main" or branch.startswith("main"):
@@ -359,23 +383,23 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
                     print(f"  {b}")
                 print("=" * 60)
                 return
-            target = f"feature/{feature_dir.name}"
+            target = f"feature/{display}"
             print(f"[Orchestrator] On main with clean slate. Auto-creating branch: {target}")
             subprocess.run(["git", "checkout", "-b", target], cwd=str(REPO_ROOT))
             branch = target
 
         # Detect branch type to tailor the runner task prompt and commit message
         if branch.startswith("bugfix/"):
-            task = f"Fix bug in {feature_dir.name}: write a failing test that reproduces the defect, then patch Handler.py per the Defect Resolution section in spec.md"
+            task = f"Fix bug in {display}: write a failing test that reproduces the defect, then patch Handler.py per the Defect Resolution section in spec.md"
             commit_type = "fix"
         elif branch.startswith("modify/"):
-            task = f"Modify {feature_dir.name} per the amended spec.md"
+            task = f"Modify {display} per the amended spec.md"
             commit_type = "feat"
         else:
-            task = f"Implement {feature_dir.name} per its spec.md"
+            task = f"Implement {display} per its spec.md"
             commit_type = "feat"
 
-        print(f"[Orchestrator] Generating code for {feature_dir.name}...")
+        print(f"[Orchestrator] Generating code for {display}...")
         ok = run_runner("backend", feature_dir, task)
         if ok:
             print(f"\n{'='*60}\nALL TESTS PASSED.\n")
@@ -401,7 +425,7 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         if not feature_dir:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
-        check_branch(feature_dir.name, "modify")
+        check_branch(feature_name, "modify")
         amend_spec(
             feature_dir,
             heading="CONTRACT AMENDMENT",
@@ -409,6 +433,7 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
             revert_msg="If the AI miswrote the contract, revert and re-run with a clearer prompt:",
             next_instruction="NEXT: Edit the spec.md above with your changes, run the cat command, or edit directly with your editor:",
             branch_prefix="modify",
+            feature_name=feature_name,
         )
         return
 
@@ -419,7 +444,7 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         if not feature_dir:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
-        check_branch(feature_dir.name, "bugfix")
+        check_branch(feature_name, "bugfix")
         amend_spec(
             feature_dir,
             heading="DEFECT DOCUMENTATION",
@@ -427,6 +452,7 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
             revert_msg="If the AI miswrote the defect documentation, revert and re-run:",
             next_instruction="NEXT: Add the '## Defect Resolution' section to the spec.md above, then run the cat command, or edit directly with your editor:",
             branch_prefix="bugfix",
+            feature_name=feature_name,
         )
         return
 

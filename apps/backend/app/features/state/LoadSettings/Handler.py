@@ -11,9 +11,9 @@ from .Schema import GlobalSettings, StrategySettings
 
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 DATA_DIR = ROOT / "data"
-FACTORY_DIR = ROOT / "factory"
+FACTORY_DIR = ROOT / "apps/backend/app/features/factory"
 
 
 class LoadSettingsHandler:

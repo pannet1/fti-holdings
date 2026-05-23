@@ -1,4 +1,4 @@
-# Strategy Spec: Ratchet Two-Book Investing
+# RunRatchetStrategy — Ratchet Two-Book Investing
 
 ## Concept
 
