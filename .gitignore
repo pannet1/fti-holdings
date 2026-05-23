@@ -151,8 +151,10 @@ tailwind.config.js
 yarn-error.log
 yarn.lock
 
-# monorepo: agents tooling
-.agents/
+# monorepo: agents tooling (tracked: orchestrator.py, runner.py, personas/*.md)
+
+# draft prompt files for orchestrator --prompt flag
+drafts/
 
 # monorepo: nested lockfiles (root lockfile only)
 apps/*/uv.lock

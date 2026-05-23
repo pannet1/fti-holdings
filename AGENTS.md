@@ -34,17 +34,16 @@ Write-locked to Qwik feature slices. Read specs, implement components/routes in 
 
 ### QA / Evaluation Agent (Reports to Orchestrator)
 
-**Responsibility**: Autonomous quality gate. Runs after code agents.
+**Responsibility**: Quality gate. Reviews code against spec.md. Analyzes tracebacks passed by the Human. Never executes commands on the local machine.
 
 **Pipeline**:
 ```
-[Code Agent completes] → [QA Agent runs] →
-  1. Lint check
-  2. Type check
-  3. Unit tests
-  4. Edge-case test generation + run
-  5. Spec compliance check (does code match spec?)
-  6. Report pass/fail → loop back to code agent on failure
+[Code Agent completes] → [Human runs tests] → [Human passes results to QA Agent via --error] →
+  1. Spec compliance check (does code match spec?)
+  2. Analyze test failure traceback
+  3. Generate edge-case tests for uncovered paths
+  4. Output fixed code blocks
+  5. Report pass/fail → loop back to code agent on failure
 ```
 
 ---
@@ -57,20 +56,20 @@ Write-locked to Qwik feature slices. Read specs, implement components/routes in 
 
 ## 2. Agentic Pipeline (Spec → Code → Eval)
 
+### Step 0: Branch Isolation (Human)
+Human creates feature branch: `git checkout -b feature/X`. Agents remain blind to version control.
+
 ### Step 1: Spec Definition (Human + Orchestrator)
 Human describes feature → Orchestrator writes structured spec. **Output**: Locked-down acceptance criteria.
 
 ### Step 2: Code Generation (Backend Agent)
-Reads spec, scaffolds FastAPI endpoints/SQLite models/Pydantic schemas/tests, implements logic. **Output**: Feature code + tests.
-
-### Step 2b: Frontend Generation (Frontend Agent — if applicable)
-Reads spec, scaffolds Qwik components and routes, implements UI. **Output**: Feature components + tests.
+Reads spec, scaffolds Pydantic schemas/tests, implements logic. **Output**: Feature code + tests.
 
 ### Step 3: Evaluation Gates (QA Agent)
-Lint + typecheck + unit tests + edge-case generation + spec compliance. Loops to Backend/Frontend on failure. **Gate passes only when** all five pass.
+Spec compliance check + traceback analysis + edge-case generation. Human executes `uv run pytest`, passes failures to QA Agent via `--error`. Loops to Backend on failure. **Gate passes only when** all checks pass.
 
-### Step 4: Human Review
-Agent opens PR with summary. Human reviews and merges.
+### Step 4: PR Lifecycle (Human)
+Human stages (`git add .`), commits (`git commit -m "feat: implement X"`), pushes (`git push origin feature/X`), and opens a Pull Request on GitHub. Upon architectural review, the Human merges the PR into main.
 
 ---
 
@@ -139,8 +138,8 @@ python .agents/orchestrator.py "<human request>"
 
 ### Workflow
 1. **Human** starts task with natural language description
-2. **Orchestrator** reads relevant specs, decomposes into atomic steps
-3. **Orchestrator** creates feature branch with a descriptive name
+2. **Human** creates feature branch: `git checkout -b feature/X`
+3. **Orchestrator** reads relevant specs, decomposes into atomic steps
 4. **Orchestrator** creates task list via Task tool, dispatches to sub-agents
 5. **Backend Agent** implements feature in vertical slice, creates tests
 5b. **Frontend Agent** implements Qwik components/routes, creates tests (if applicable)
