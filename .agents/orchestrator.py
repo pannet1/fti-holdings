@@ -312,6 +312,39 @@ def amend_spec(feature_dir: Path, heading: str, instruction: str, revert_msg: st
     print(f"{'='*60}")
 
 
+def resolve_change_prompt(rest: str, prompt_content: str, feature_name: str, prefix: str) -> str:
+    if prompt_content:
+        return prompt_content
+    if not rest:
+        print("=" * 60)
+        print(f"ERROR: `{prefix}/{feature_name}` requires a prompt.")
+        print()
+        print("Options:")
+        print(f'  ./.agents/orchestrator.py {prefix}/{feature_name} --prompt path/to/prompt.md')
+        print(f'  ./.agents/orchestrator.py {prefix}/{feature_name} "describe your change in words"')
+        print(f'  ./.agents/orchestrator.py {prefix}/{feature_name} path/to/prompt.md')
+        print("=" * 60)
+        sys.exit(1)
+    path = Path(rest)
+    if path.suffix == ".md":
+        resolved = REPO_ROOT / rest
+        if not resolved.exists():
+            print(f"[Orchestrator] Prompt file not found: {resolved}")
+            sys.exit(1)
+        return resolved.read_text().strip()
+    return rest.strip()
+
+
+def _write_spec_amendment(feature_dir: Path, section: str, prompt: str) -> None:
+    spec_path = feature_dir / "spec.md"
+    existing = spec_path.read_text() if spec_path.exists() else ""
+    amendment = f"\n## {section}\n\n{prompt}\n"
+    if existing:
+        spec_path.write_text(existing + amendment)
+    else:
+        spec_path.write_text(amendment)
+
+
 def run_runner(persona_key: str, target: Path, task: str, error_path: Optional[Path] = None) -> bool:
     persona_path = PERSONAS_DIR / f"{persona_key}_agent.md"
     if not persona_path.exists():
@@ -425,6 +458,8 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         if not feature_dir:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
+        change_prompt = resolve_change_prompt(rest, prompt_content, feature_name, "modify")
+        _write_spec_amendment(feature_dir, "Modification Request", change_prompt)
         check_branch(feature_name, "modify")
         amend_spec(
             feature_dir,
@@ -444,6 +479,8 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         if not feature_dir:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
+        change_prompt = resolve_change_prompt(rest, prompt_content, feature_name, "bugfix")
+        _write_spec_amendment(feature_dir, "Defect Resolution", change_prompt)
         check_branch(feature_name, "bugfix")
         amend_spec(
             feature_dir,
