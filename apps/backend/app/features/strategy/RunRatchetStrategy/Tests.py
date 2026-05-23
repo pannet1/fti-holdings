@@ -1,7 +1,17 @@
+import yaml
+from pathlib import Path
+
 import pytest
 
 from .Handler import RunRatchetStrategyHandler
 from .Ratchet import Rachet
+
+
+def _candle_from_settings() -> int:
+    path = Path(__file__).resolve().parent.parent.parent.parent.parent.parent.parent / "data" / "settings.yml"
+    with open(path) as f:
+        raw = yaml.safe_load(f)
+    return raw["candle"]
 
 
 class TestRunRatchetStrategyHandler:
@@ -24,6 +34,7 @@ class TestRunRatchetStrategyHandler:
                 "stop_time": "15:00",
                 "multiplier": [1, 2, 3, 5, 8, 13, 21, 33, 55],
                 "perc": 0.05,
+                "candle": _candle_from_settings(),
             },
         )
         assert result["status"] == "ok"
@@ -42,6 +53,7 @@ class TestRunRatchetStrategyHandler:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         signal = handler.execute_tick(strategy=strategy, quotes={"ITBEES": 245.50})
         assert signal is not None
@@ -91,6 +103,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         assert inst.strategy == "ratchet"
         assert inst._tradingsymbol == "ITBEES"
@@ -119,6 +132,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         assert inst._total_qty == 0
         assert inst._holdings == []
@@ -137,6 +151,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         quotes = {"ITBEES": 245.50, "MOTHERSON": 180.75}
         signal = inst.run(trades=None, quotes=quotes, positions=None)
@@ -163,6 +178,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal is not None
@@ -185,6 +201,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         signal = inst.run(trades=None, quotes={"ITBEES": 260.00}, positions=None)
         assert signal is not None
@@ -207,6 +224,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         signal = inst.run(trades=None, quotes={"ITBEES": 230.00}, positions=None)
         assert signal is not None
@@ -223,7 +241,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
-            candle=1,
+            candle=_candle_from_settings(),
         )
         signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal1 is not None
@@ -241,7 +259,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
-            candle=1,
+            candle=_candle_from_settings(),
         )
         signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal1 is not None
@@ -270,6 +288,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal is None
@@ -290,6 +309,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         target = 245.00 * 1.05
         signal = inst.run(trades=None, quotes={"ITBEES": target}, positions=None)
@@ -310,6 +330,7 @@ class TestRachetStrategy:
             stop_time="15:00",
             multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
             perc=0.05,
+            candle=_candle_from_settings(),
         )
         quotes = {"ITBEES": 0}
         signal = inst.run(trades=None, quotes=quotes, positions=None)

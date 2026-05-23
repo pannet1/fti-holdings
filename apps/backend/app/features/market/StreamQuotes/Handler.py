@@ -1,9 +1,9 @@
 import logging
 import time
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from NorenRestApiPy.NorenApi import FeedType
+from broker_ai.finvasia.wsocket import Wsocket
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class StreamQuotesHandler:
 
     def __init__(self, broker_session: Any, tokens: List[str], symbol_map: Dict[str, str]) -> None:
-        self._api = broker_session
+        self._ws = Wsocket(broker_session.broker)
         self._tokens = tokens
         self._symbol_map = symbol_map
         self._ltp: Dict[str, float] = {}
@@ -23,35 +23,29 @@ class StreamQuotesHandler:
         if self._started:
             return
         self._started = True
-        self._api.broker.start_websocket(
-            subscribe_callback=self._quote_callback,
-            order_update_callback=self._order_callback,
-            socket_open_callback=self._open_callback,
-            socket_close_callback=self._close_callback,
-            socket_error_callback=self._error_callback,
-        )
 
-    def _open_callback(self) -> None:
+        self._ws.on_connect = self._on_open
+        self._ws.on_ticks = self._on_ticks
+        self._ws.on_close = self._on_close
+        self._ws.on_error = self._on_error
+
+        self._ws.connect()
+
+    def _on_open(self) -> None:
         self._socket_opened = True
-        self._api.broker.subscribe(self._tokens, feed_type=FeedType.SNAPQUOTE)
+        self._ws.subscribe(self._tokens)
         logger.info(f"Websocket subscribed to {len(self._tokens)} tokens")
 
-    def _close_callback(self) -> None:
+    def _on_close(self) -> None:
         self._socket_opened = False
         logger.warning("Websocket closed")
 
-    def _error_callback(self, error: Any) -> None:
+    def _on_error(self, error: str) -> None:
         logger.error(f"Websocket error: {error}")
 
-    def _order_callback(self, message: Any) -> None:
-        pass
-
-    def _quote_callback(self, message: Any) -> None:
-        lp = message.get("lp")
-        if lp is not None:
-            key = f"{message['e']}|{message['tk']}"
-            with self._lock:
-                self._ltp[key] = float(lp)
+    def _on_ticks(self, ltp: Dict[str, float]) -> None:
+        with self._lock:
+            self._ltp.update(ltp)
 
     def get_quotes(self, symbols: List[str]) -> Dict[str, float]:
         result: Dict[str, float] = {}
@@ -75,5 +69,5 @@ class StreamQuotesHandler:
 
     def close(self) -> None:
         if self._started:
-            self._api.broker.close_websocket()
+            self._ws.disconnect()
             self._started = False

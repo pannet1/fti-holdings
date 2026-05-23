@@ -22,7 +22,7 @@ class Rachet:
         self._multiplier: List[int] = O_SETG.get("multiplier", [1])
         self._perc: float = O_SETG.get("perc", 0.05)
         self._candle = ManageCandleHandler(
-            minute=O_SETG.get("candle", 1),
+            minute=O_SETG["candle"],
             start=O_SETG.get("start_time", "09:00"),
             stop=O_SETG.get("stop_time", "15:30"),
         )

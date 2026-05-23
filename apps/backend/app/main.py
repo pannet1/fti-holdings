@@ -34,13 +34,14 @@ def load_auth_credentials(auth_file: Path, broker: str) -> dict:
     return raw[broker]
 
 
-def build_strategies(tracker: Any) -> List[Rachet]:
+def build_strategies(tracker: Any, global_settings: dict) -> List[Rachet]:
     instances: List[Rachet] = []
     while True:
         next_run = tracker.execute()
         if next_run["status"] == "empty":
             break
-        cfg = next_run["settings"]
+        cfg = dict(next_run["settings"])
+        cfg.setdefault("candle", global_settings["candle"])
         try:
             strat = Rachet(**cfg)
             instances.append(strat)
@@ -125,7 +126,7 @@ def main():
         holdings_tracker = TrackHoldingsHandler(data_dir=str(DATA_DIR))
         trades_journal = JournalTradesHandler(data_dir=str(DATA_DIR))
 
-        strategies = build_strategies(tracker)
+        strategies = build_strategies(tracker, settings["global"])
         logger.info(f"Active strategies: {len(strategies)}")
 
         if strategies:

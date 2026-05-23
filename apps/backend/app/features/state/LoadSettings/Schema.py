@@ -7,6 +7,7 @@ class GlobalSettings(BaseModel):
     log_show: bool
     start: str
     stop: str
+    candle: int
 
 
 class StrategySettings(BaseModel):

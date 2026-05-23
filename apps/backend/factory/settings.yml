@@ -2,3 +2,4 @@ log_level: DEBUG
 log_show: true
 start: "09:15"
 stop: "23:55"
+candle: 240
