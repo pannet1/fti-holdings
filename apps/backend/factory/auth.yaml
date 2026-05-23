@@ -6,3 +6,4 @@ finvasia:
   api_secret: ""
   imei: ""
   oauth_url: ""
+  vendor_code: ""
