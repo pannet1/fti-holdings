@@ -605,6 +605,38 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         )
         return
 
+    if prefix == "delete":
+        feature_name = action or rest
+        feature_dir = find_feature_dir(feature_name)
+        branch = current_branch()
+        target_branches = [f"feature/{feature_name}", f"modify/{feature_name}", f"bugfix/{feature_name}"]
+        on_target = branch in target_branches
+        found_any = False
+
+        if feature_dir and feature_dir.exists():
+            import shutil
+            shutil.rmtree(feature_dir)
+            print(f"[Orchestrator] Deleted feature directory: {feature_dir}")
+            found_any = True
+
+        subprocess.run(["git", "stash"], cwd=str(REPO_ROOT), capture_output=True)
+        if on_target:
+            subprocess.run(["git", "checkout", "main"], cwd=str(REPO_ROOT))
+            subprocess.run(["git", "branch", "-D", branch], cwd=str(REPO_ROOT))
+            print(f"[Orchestrator] Deleted branch: {branch}")
+            found_any = True
+        else:
+            for tb in target_branches:
+                if branch_exists(tb):
+                    subprocess.run(["git", "branch", "-D", tb], cwd=str(REPO_ROOT))
+                    print(f"[Orchestrator] Deleted branch: {tb}")
+                    found_any = True
+
+        if not found_any:
+            print(f"[Orchestrator] Nothing to delete: feature '{feature_name}' not found.")
+
+        return
+
     if prefix == "deploy":
         print("=" * 60)
         print("Deploy mode: follow DEPLOYMENT.md manually.")
@@ -652,6 +684,7 @@ def parse_args() -> argparse.Namespace:
         print('  implement ./.agents/orchestrator.py implement/ManageCandle')
         print('  modify    ./.agents/orchestrator.py modify/RunRatchetStrategy')
         print('  bugfix    ./.agents/orchestrator.py bugfix/RunRatchetStrategy')
+        print('  delete    ./.agents/orchestrator.py delete/HelloWorld')
         sys.exit(1)
     return args
 
