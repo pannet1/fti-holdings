@@ -5,7 +5,7 @@ from .Handler import LoadSettingsHandler
 
 
 @pytest.fixture
-def handler():
+def handler() -> LoadSettingsHandler:
     return LoadSettingsHandler()
 
 

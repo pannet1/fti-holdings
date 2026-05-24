@@ -18,7 +18,7 @@ FACTORY_DIR = BACKEND_ROOT / "factory"
 
 class LoadSettingsHandler:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.DATA_DIR = DATA_DIR
         self.FACTORY_DIR = FACTORY_DIR
         self.SETTINGS_FILE = DATA_DIR / "settings.yml"
@@ -51,7 +51,7 @@ class LoadSettingsHandler:
             "strategies": [s.model_dump() for s in strategies],
         }
 
-    def _ensure_data_dir(self):
+    def _ensure_data_dir(self) -> None:
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     def _check_config_files(self) -> List[Path]:
@@ -62,7 +62,7 @@ class LoadSettingsHandler:
             missing.append(self.TEMPLATE_AUTH)
         return missing
 
-    def _scaffold_templates(self, missing: List[Path]):
+    def _scaffold_templates(self, missing: List[Path]) -> None:
         for tmpl in missing:
             if not tmpl.exists():
                 msg = f"Factory template not found: {tmpl}. Cannot scaffold config files."
