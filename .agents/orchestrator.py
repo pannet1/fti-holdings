@@ -564,9 +564,9 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     # --- feature/X: scaffold new feature ---
     if prefix == "feature":
         description = resolve_change_prompt(rest, prompt_content, action, "feature")
-        domain, inferred = infer_domain_action(action)
-        check_branch(inferred, "feature")
-        scaffold_new_feature(domain, inferred, description, no_controller=no_controller)
+        domain = KNOWN_FEATURES.get(action, "")
+        check_branch(action, "feature")
+        scaffold_new_feature(domain, action, description, no_controller=no_controller)
         print("=" * 60)
         print("THEN RUN:")
         print(f"  ./.agents/orchestrator.py implement/{inferred}")
