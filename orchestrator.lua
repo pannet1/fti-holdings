@@ -1,6 +1,6 @@
 -- orchestrator.lua — Neovim integration for the orchestration harness
--- Source:  luafile .agents/orchestrator.lua
--- Lazy:   { dir = '.agents', file = 'orchestrator.lua' }
+-- Source:  luafile orchestrator.lua
+-- Lazy:   { dir = '.', file = 'orchestrator.lua' }
 --
 -- Commands:
 --   :Orch feature/X --prompt "..."   scaffold with prompt
