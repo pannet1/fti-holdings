@@ -53,14 +53,22 @@ def _zen_session_id() -> str:
     return "ses_" + "".join(random.choices(alphabet, k=26))
 
 
+ZEN_FALLBACKS = [
+    "deepseek-v4-flash-free",
+    "nemotron-3-super-free",
+    "minimax-m2.5-free",
+    "qwen3.6-plus-free",
+]
+
+
 def _zen_model() -> str:
     if MODEL_CONFIG.exists():
         try:
             cfg = json.loads(MODEL_CONFIG.read_text())
-            return cfg.get("model", "deepseek-v4-flash-free")
+            return cfg.get("model", ZEN_FALLBACKS[0])
         except Exception:
             pass
-    return "deepseek-v4-flash-free"
+    return ZEN_FALLBACKS[0]
 
 
 def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
@@ -107,20 +115,45 @@ def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
         "max_tokens": 2048,
         "temperature": 0.3,
     }
-    data = json.dumps(payload).encode()
-    req = urllib.request.Request(ZEN_URL, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read())
+    return _zen_chat(headers, payload)
+
+
+def _zen_chat(headers: dict, payload: dict) -> str | None:
+    fallbacks = ZEN_FALLBACKS[:]
+    selected = payload["model"]
+    if selected in fallbacks:
+        fallbacks.remove(selected)
+    fallbacks.insert(0, selected)
+
+    for model in fallbacks:
+        payload["model"] = model
+        data = json.dumps(payload).encode()
+        req = urllib.request.Request(ZEN_URL, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                body = json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                print(f"[Orchestrator] Model '{model}' unavailable (free tier ended). Trying next...", file=sys.stderr)
+                continue
+            print(f"[Orchestrator] Zen API error ({model}): {e}", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"[Orchestrator] Zen API error ({model}): {e}", file=sys.stderr)
+            return None
+
         content = body["choices"][0]["message"]["content"].strip()
         if content.startswith("```"):
             content = content.split("\n", 1)[1] if "\n" in content else content[3:]
             if content.endswith("```"):
                 content = content[:-3].strip()
+        if model != selected:
+            MODEL_CONFIG.write_text(json.dumps({"model": model}) + "\n")
+            print(f"[Orchestrator] Fallback: model config updated to '{model}'", file=sys.stderr)
         return content
-    except Exception as e:
-        print(f"[Orchestrator] Zen API error: {e}", file=sys.stderr)
-        return None
+
+    print("[Orchestrator] No working model found. Run ./.agents/select_model.py to pick one.", file=sys.stderr)
+    return None
 
 
 SPEC_TEMPLATE = """\
