@@ -1,9 +1,9 @@
 -- fti-orchestrator — Neovim plugin for the orchestration harness
--- Lazy spec:
+-- Lazy spec (add to ~/.config/nvim/lua/plugins/fti-orch.lua or similar):
 --   {
 --     dir = "~/programs/python/github.com/pannet1/fti-holdings/nvim/orchestrator",
 --     name = "fti-orch",
---     cond = function() return vim.fn.getcwd():match("fti%-holdings") end,
+--     cmd = "Orch",
 --   }
 --
 -- Commands:
