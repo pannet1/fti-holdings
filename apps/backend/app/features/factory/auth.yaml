@@ -1,8 +1,0 @@
-finvasia:
-  userid: ""
-  password: ""
-  totp_secret: ""
-  api_key: ""
-  api_secret: ""
-  imei: ""
-  oauth_url: ""
