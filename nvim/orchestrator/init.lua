@@ -22,9 +22,9 @@
 
 local M = {}
 
--- Resolve repo root from the plugin's own directory (nvim/orchestrator/)
-local plugin_dir = vim.fn.expand("<sfile>:p:h:h:h")
-local repo_root = plugin_dir
+-- Resolve repo root from the plugin's own directory
+local src = debug.getinfo(1, "S").source:match("@(.+)") or ""
+local repo_root = src:gsub("/nvim/orchestrator/init%.lua$", "")
 local cmd_base = repo_root .. "/.agents/orchestrator.py"
 
 -- Terminal window
