@@ -3,7 +3,7 @@
 --   {
 --     dir = "~/programs/python/github.com/pannet1/fti-holdings/nvim/orchestrator",
 --     name = "fti-orch",
---     cmd = "Orch",
+--     lazy = false,
 --   }
 --
 -- Commands:
@@ -22,7 +22,9 @@
 
 local M = {}
 
-local repo_root = vim.fn.getcwd()
+-- Resolve repo root from the plugin's own directory (nvim/orchestrator/)
+local plugin_dir = vim.fn.expand("<sfile>:p:h:h:h")
+local repo_root = plugin_dir
 local cmd_base = repo_root .. "/.agents/orchestrator.py"
 
 -- Terminal window
