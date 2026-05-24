@@ -569,7 +569,7 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
         scaffold_new_feature(domain, action, description, no_controller=no_controller)
         print("=" * 60)
         print("THEN RUN:")
-        print(f"  ./.agents/orchestrator.py implement/{inferred}")
+        print(f"  ./.agents/orchestrator.py implement/{action}")
         print("=" * 60)
         return
 
