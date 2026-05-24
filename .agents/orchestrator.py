@@ -30,6 +30,7 @@ FEATURES_DIR = REPO_ROOT / "apps" / "backend" / "app" / "features"
 FEATURES_CONFIG = AGENTS_DIR / "features.json"
 RUNNER = AGENTS_DIR / "runner.py"
 PERSONAS_DIR = AGENTS_DIR / "personas"
+MODEL_CONFIG = AGENTS_DIR / "model_config.json"
 
 
 def load_features_config() -> dict[str, Any]:
@@ -50,6 +51,16 @@ ZEN_URL = "https://opencode.ai/zen/v1/chat/completions"
 def _zen_session_id() -> str:
     alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_"
     return "ses_" + "".join(random.choices(alphabet, k=26))
+
+
+def _zen_model() -> str:
+    if MODEL_CONFIG.exists():
+        try:
+            cfg = json.loads(MODEL_CONFIG.read_text())
+            return cfg.get("model", "deepseek-v4-flash-free")
+        except Exception:
+            pass
+    return "deepseek-v4-flash-free"
 
 
 def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
@@ -88,7 +99,7 @@ def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
         "User-Agent": "opencode/1.15.4",
     }
     payload = {
-        "model": "deepseek-v4-flash-free",
+        "model": _zen_model(),
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Feature: {action}\nDomain: {domain or '(none)'}\n\nDescription:\n{prompt}"},
@@ -591,7 +602,14 @@ def parse_args() -> argparse.Namespace:
         "--prompt", "-p",
         help="Path to a prompt file with multi-sentence feature logic (relative to repo root)",
     )
+    parser.add_argument(
+        "--model", "-m",
+        help="Override Zen API model for this run (e.g. --model claude-sonnet-4-5)",
+    )
     args = parser.parse_args()
+    if args.model:
+        MODEL_CONFIG.write_text(json.dumps({"model": args.model}) + "\n")
+        print(f"[Orchestrator] Model set to: {args.model}\n")
     if not args.command:
         parser.print_help()
         print()
