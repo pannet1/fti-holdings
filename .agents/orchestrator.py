@@ -176,7 +176,7 @@ def infer_domain_action(feature_name: str) -> tuple[str, str]:
                 continue
             if feature_dir.name.lower() == lower:
                 return domain_dir.name, feature_dir.name
-    return "general", name
+    return "", name
 
 
 def find_feature_dir(request_feature: str) -> Optional[Path]:
@@ -224,10 +224,17 @@ def unmerged_branches() -> list[str]:
         return []
 
 
+def branch_exists(name: str) -> bool:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", name],
+        capture_output=True, text=True, cwd=str(REPO_ROOT),
+    )
+    return result.returncode == 0
+
+
 def check_branch(action: str, prefix: str = "feature") -> str:
     branch = current_branch()
 
-    # Case 4: already on a feature/modify/bugfix branch — complete it first
     for p in ("feature/", "modify/", "bugfix/"):
         if branch.startswith(p):
             print("=" * 60)
@@ -246,8 +253,12 @@ def check_branch(action: str, prefix: str = "feature") -> str:
             print("=" * 60)
             sys.exit(1)
         target = f"{prefix}/{action}"
-        print(f"[Orchestrator] On main with clean slate. Auto-creating branch: {target}")
-        subprocess.run(["git", "checkout", "-b", target], cwd=str(REPO_ROOT))
+        if branch_exists(target):
+            print(f"[Orchestrator] Branch '{target}' exists. Switching to it.")
+            subprocess.run(["git", "checkout", target], cwd=str(REPO_ROOT))
+        else:
+            print(f"[Orchestrator] Creating branch: {target}")
+            subprocess.run(["git", "checkout", "-b", target], cwd=str(REPO_ROOT), check=True)
         return target
     elif branch == "(unknown)":
         pass
@@ -255,7 +266,7 @@ def check_branch(action: str, prefix: str = "feature") -> str:
 
 
 def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
-    slice_dir = FEATURES_DIR / domain / action
+    slice_dir = FEATURES_DIR / domain / action if domain else FEATURES_DIR / action
     slice_dir.mkdir(parents=True, exist_ok=True)
 
     overview_text = format_spec_overview(overview)
@@ -272,7 +283,8 @@ def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
 
     (slice_dir / "__init__.py").touch()
 
-    print(f"\nScaffolded new feature: {domain}/{action}\n")
+    label = f"{domain}/{action}" if domain else action
+    print(f"\nScaffolded new feature: {label}\n")
     return slice_dir
 
 
