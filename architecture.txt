@@ -1,0 +1,126 @@
+.
+├── .agents
+│   ├── features.json
+│   ├── model_config.json
+│   ├── orchestrator.py
+│   ├── personas
+│   │   ├── backend_agent.md
+│   │   ├── frontend_agent.md
+│   │   └── qa_agent.md
+│   ├── runner.py
+│   └── select_model.py
+├── AGENTS.md
+├── apps
+│   ├── backend
+│   │   ├── app
+│   │   │   ├── features
+│   │   │   │   ├── broker
+│   │   │   │   │   └── AuthenticateBroker
+│   │   │   │   │       ├── Controller.py
+│   │   │   │   │       ├── Handler.py
+│   │   │   │   │       ├── Schema.py
+│   │   │   │   │       ├── spec.md
+│   │   │   │   │       └── Tests.py
+│   │   │   │   ├── common
+│   │   │   │   │   └── ManageCandle
+│   │   │   │   │       ├── Controller.py
+│   │   │   │   │       ├── Handler.py
+│   │   │   │   │       ├── Schema.py
+│   │   │   │   │       ├── spec.md
+│   │   │   │   │       └── Tests.py
+│   │   │   │   ├── DelTest
+│   │   │   │   ├── DelTest2
+│   │   │   │   ├── HelloWorld
+│   │   │   │   │   ├── Controller.py
+│   │   │   │   │   ├── Handler.py
+│   │   │   │   │   ├── Schema.py
+│   │   │   │   │   ├── spec.md
+│   │   │   │   │   └── Tests.py
+│   │   │   │   ├── market
+│   │   │   │   │   ├── FetchQuotes
+│   │   │   │   │   │   ├── Controller.py
+│   │   │   │   │   │   ├── Handler.py
+│   │   │   │   │   │   ├── Schema.py
+│   │   │   │   │   │   ├── spec.md
+│   │   │   │   │   │   └── Tests.py
+│   │   │   │   │   └── StreamQuotes
+│   │   │   │   │       ├── Controller.py
+│   │   │   │   │       ├── Handler.py
+│   │   │   │   │       ├── Schema.py
+│   │   │   │   │       └── Tests.py
+│   │   │   │   ├── order
+│   │   │   │   │   ├── Controller.py
+│   │   │   │   │   ├── Handler.py
+│   │   │   │   │   ├── Schema.py
+│   │   │   │   │   ├── spec.md
+│   │   │   │   │   └── Tests.py
+│   │   │   │   ├── state
+│   │   │   │   │   ├── JournalTrades
+│   │   │   │   │   │   ├── Handler.py
+│   │   │   │   │   │   ├── Schema.py
+│   │   │   │   │   │   ├── spec.md
+│   │   │   │   │   │   └── Tests.py
+│   │   │   │   │   ├── LoadSettings
+│   │   │   │   │   │   ├── Controller.py
+│   │   │   │   │   │   ├── Handler.py
+│   │   │   │   │   │   ├── Schema.py
+│   │   │   │   │   │   ├── spec.md
+│   │   │   │   │   │   └── Tests.py
+│   │   │   │   │   ├── LoadSymbols
+│   │   │   │   │   │   ├── Controller.py
+│   │   │   │   │   │   ├── Handler.py
+│   │   │   │   │   │   ├── Schema.py
+│   │   │   │   │   │   ├── spec.md
+│   │   │   │   │   │   └── Tests.py
+│   │   │   │   │   ├── TrackHoldings
+│   │   │   │   │   │   ├── Handler.py
+│   │   │   │   │   │   ├── Schema.py
+│   │   │   │   │   │   ├── spec.md
+│   │   │   │   │   │   └── Tests.py
+│   │   │   │   │   └── TrackRunState
+│   │   │   │   │       ├── Controller.py
+│   │   │   │   │       ├── Handler.py
+│   │   │   │   │       ├── Schema.py
+│   │   │   │   │       ├── spec.md
+│   │   │   │   │       └── Tests.py
+│   │   │   │   └── strategy
+│   │   │   │       └── RunRatchetStrategy
+│   │   │   │           ├── Controller.py
+│   │   │   │           ├── Handler.py
+│   │   │   │           ├── Ratchet.py
+│   │   │   │           ├── Schema.py
+│   │   │   │           ├── spec.md
+│   │   │   │           └── Tests.py
+│   │   │   └── main.py
+│   │   ├── factory
+│   │   │   ├── auth.yaml
+│   │   │   ├── settings.yml
+│   │   │   └── symbols.yml
+│   │   ├── pyproject.toml
+│   │   └── uv.lock
+│   └── data
+├── architecture.txt
+├── data
+│   ├── auth.yaml
+│   ├── FN137030.txt
+│   ├── holdings.csv
+│   ├── ratchet_itbees.yml
+│   ├── ratchet_motherson.yml
+│   ├── run.txt
+│   └── settings.yml
+├── DEPLOYMENT.md
+├── .gitignore
+├── packages
+│   └── shared
+│       ├── pyproject.toml
+│       └── shared
+│           ├── broker
+│           │   └── broker_spec.md
+│           └── logger.py
+├── pyproject.toml
+├── .python-version
+├── README.md
+├── SPEC.md
+└── uv.lock
+
+33 directories, 91 files

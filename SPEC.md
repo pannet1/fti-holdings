@@ -45,6 +45,7 @@ Every feature lives at `apps/backend/app/features/<domain>/<ActionName>/` with e
 - Controller never contains business logic (if-else on domain state)
 - Schema uses Pydantic v2 `BaseModel` only (no `dataclasses`, no `TypedDict`)
 - No `__init__.py` beyond the empty marker
+- **Internal data/background slices** that are never called via HTTP (e.g. `JournalTrades`, `TrackHoldings`) may omit `Controller.py`. This is the only exception to the 4-file rule. Such slices must be explicitly documented in their `spec.md` as non-HTTP utilities.
 
 ## Feature Discovery & Registration
 - `main.py` auto-discovers features by scanning `features/` at startup
@@ -63,11 +64,16 @@ Every feature lives at `apps/backend/app/features/<domain>/<ActionName>/` with e
 - Strategy callbacks receive `(touchline: dict) -> None`
 - One websocket connection per broker session; multiplexed to all strategies
 
-## Config & Secrets
-- Template configs in `apps/backend/factory/*.yml` — committed, no secrets
-- Runtime config in `data/*.yml` — gitignored, contains secrets
-- `settings.yml` has two sections: `global_settings` and `strategies`
-- `data/auth.yaml` holds broker credentials (never committed)
+## Config & Secrets — Source of Truth
+
+**`data/` is THE authoritative runtime config directory. `factory/` is a template library only, never read at runtime.**
+
+- Template configs in `apps/backend/factory/*.yml` — committed, no secrets. These are reference copies for scaffolding new environments. Never modified at runtime.
+- Runtime config in `data/*.yml` — gitignored, contains secrets. This is the only directory read by `LoadSettingsHandler` at startup.
+- `settings.yml` has two sections: `global_settings` and `strategies`. The `factory/` template and `data/` runtime copy must be kept in sync manually — `data/` is the source of truth.
+- `data/auth.yaml` holds broker credentials (never committed). No auth template exists in `factory/`.
+
+**Rule**: If a key exists in `factory/settings.yml` but not in `data/settings.yml`, the app crashes at startup with a `KeyError`. The runtime never falls back to factory defaults.
 
 ## Broker Integration
 - **broker-ai** library in separate Git repo; fixes done upstream, pulled via uv.lock

@@ -13,7 +13,7 @@ from app.features.state.TrackRunState.Handler import TrackRunStateHandler
 from app.features.broker.AuthenticateBroker.Handler import AuthenticateBrokerHandler
 from app.features.strategy.RunRatchetStrategy.Handler import RunRatchetStrategyHandler
 from app.features.strategy.RunRatchetStrategy.Ratchet import Rachet
-from app.features.order.Handler import ManageOrderHandler
+from app.features.order.ManageOrder.Handler import ManageOrderHandler
 from app.features.state.TrackHoldings.Handler import TrackHoldingsHandler
 from app.features.state.TrackHoldings.Schema import HoldingsRow
 from app.features.state.JournalTrades.Handler import JournalTradesHandler
