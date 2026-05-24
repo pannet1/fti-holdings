@@ -152,6 +152,9 @@ def _zen_chat(headers: dict, payload: dict) -> str | None:
             content = content.split("\n", 1)[1] if "\n" in content else content[3:]
             if content.endswith("```"):
                 content = content[:-3].strip()
+        if not content and model != fallbacks[-1]:
+            print(f"[Orchestrator] Model '{model}' returned empty response. Trying next...", file=sys.stderr)
+            continue
         if model != selected:
             MODEL_CONFIG.write_text(json.dumps({"model": model}) + "\n")
             print(f"[Orchestrator] Fallback: model config updated to '{model}'", file=sys.stderr)

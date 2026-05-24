@@ -102,6 +102,9 @@ def _zen_chat(prompt: str) -> str | None:
             return None
 
         content = body["choices"][0]["message"]["content"].strip()
+        if not content and model != fallbacks[-1]:
+            print(f"[Runner] Model '{model}' returned empty response. Trying next...", file=sys.stderr)
+            continue
         if model != selected:
             MODEL_CONFIG.write_text(json.dumps({"model": model}) + "\n")
             print(f"[Runner] Fallback: model config updated to '{model}'", file=sys.stderr)
