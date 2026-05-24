@@ -159,3 +159,11 @@ All code must use type annotations per PEP 484 (function signatures + module-lev
 ## Modification Request
 
 the factory path and data path are changed. please ensure that settings are loaded correctly
+
+## Modification Request
+
+i want to add another key to the factory/settings yaml file.
+
+backtest: 0
+
+if backtest: 1 is set in the data/settings yaml file, the bot will run in backtest mode.

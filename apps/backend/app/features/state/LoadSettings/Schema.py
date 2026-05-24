@@ -8,6 +8,7 @@ class GlobalSettings(BaseModel):
     start: str
     stop: str
     candle: int
+    backtest: int = 0
 
 
 class StrategySettings(BaseModel):

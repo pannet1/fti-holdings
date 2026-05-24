@@ -22,7 +22,7 @@ class TestLoadSettingsHandler:
         handler.TEMPLATE_SETTINGS = factory_dir / "settings.yml"
         handler.TEMPLATE_AUTH = factory_dir / "auth.yaml"
 
-        handler.TEMPLATE_SETTINGS.write_text("log_level: DEBUG\nlog_show: true\nstart: '09:15'\nstop: '15:30'\ncandle: 240\n")
+        handler.TEMPLATE_SETTINGS.write_text("log_level: DEBUG\nlog_show: true\nstart: '09:15'\nstop: '15:30'\ncandle: 240\nbacktest: 0\n")
         handler.TEMPLATE_AUTH.write_text("finvasia:\n  user_id: ''\n  password: ''\n  totp_secret: ''\n")
 
         with pytest.raises(RuntimeError, match="Configuration files missing"):
@@ -45,6 +45,7 @@ class TestLoadSettingsHandler:
             "start": "09:15",
             "stop": "15:30",
             "candle": 1,
+            "backtest": 0,
         }
         f = tmp_path / "settings.yml"
         with open(f, "w") as fh:
@@ -77,10 +78,11 @@ class TestLoadSettingsHandler:
         result = handler._parse_global_settings()
         assert result.log_level == "INFO"
         assert result.log_show is True
+        assert result.backtest == 0
 
     def test_empty_strategy_list_when_no_strategy_files(self, handler, tmp_path):
         f = tmp_path / "settings.yml"
-        f.write_text("log_level: DEBUG\nlog_show: true\nstart: '09:15'\nstop: '15:30'\ncandle: 240\n")
+        f.write_text("log_level: DEBUG\nlog_show: true\nstart: '09:15'\nstop: '15:30'\ncandle: 240\nbacktest: 0\n")
         auth = tmp_path / "auth.yaml"
         auth.write_text("finvasia:\n  user_id: 'u'\n  password: 'p'\n  totp_secret: 't'\n")
 
