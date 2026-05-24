@@ -10,7 +10,8 @@
     "TrackRunState": "state",
     "LoadSymbols": "state",
     "RunRatchetStrategy": "strategy",
-  "SeedConfig": "factory"
+    "SeedConfig": "factory",
+    "HistoricQuotes": "market"
   },
   "domain_keywords": {
     "auth": ["broker", "AuthenticateBroker"],
