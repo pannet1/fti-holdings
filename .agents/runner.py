@@ -83,13 +83,14 @@ def _zen_chat(prompt: str) -> str | None:
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "temperature": 0.3,
         }
         data = json.dumps(payload).encode()
         req = urllib.request.Request(ZEN_URL, data=data, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            print(f"[Runner] Sending {len(payload['messages'][0]['content'])} chars to model '{model}'...", file=sys.stderr)
+            with urllib.request.urlopen(req, timeout=300) as resp:
                 body = json.loads(resp.read())
         except urllib.error.HTTPError as e:
             if e.code == 401:
@@ -157,8 +158,9 @@ def build_prompt(persona: str, target: Path, target_files: dict, task: str, erro
     parts.append("")
     parts.append(
         "## Output Format\n"
-        "For each file you generate or modify, respond with a fenced code block "
-        "preceded by a line `### <filename>`.\n"
+        "CRITICAL: Output ONLY the code blocks below. No analysis, reasoning, or explanation.\n"
+        "For each file, respond with a fenced code block preceded by `### <filename>`.\n"
+        "All 4 files are required: Schema.py, Handler.py, Controller.py, Tests.py\n"
         "Example:\n"
         "### Handler.py\n"
         "```python\n"
@@ -218,8 +220,9 @@ def extract_code_blocks(text: str) -> dict[str, str]:
     return files
 
 
-def write_code_blocks(files: dict[str, str], target: Path) -> list[Path]:
+def write_code_blocks(files: dict[str, str], target: Path) -> tuple[list[Path], list[Path]]:
     written: list[Path] = []
+    deleted: list[Path] = []
     expected = {"Schema.py", "Handler.py", "Controller.py", "Tests.py"}
     produced = set()
 
@@ -229,16 +232,29 @@ def write_code_blocks(files: dict[str, str], target: Path) -> list[Path]:
         written.append(path)
         produced.add(fname)
 
-    # Delete files the AI intentionally omitted from the slice
     for fname in expected:
         if fname not in produced:
             path = target / fname
             if path.exists():
                 path.unlink()
-                written.append(path)
+                deleted.append(path)
                 print(f"[Runner] Deleted {fname} (absent from AI output)")
 
-    return written
+    return written, deleted
+
+
+def truncated_files(written: list[Path]) -> list[str]:
+    truncated: list[str] = []
+    for p in written:
+        if not p.exists():
+            continue
+        content = p.read_text().rstrip()
+        if not content:
+            continue
+        last_char = content[-1]
+        if last_char in "([{," or content.endswith("Optional["):
+            truncated.append(p.name)
+    return truncated
 
 
 def run_pytest(test_path: Path) -> tuple[bool, str]:
@@ -253,16 +269,30 @@ def run_pytest(test_path: Path) -> tuple[bool, str]:
 
 
 def auto_backend(target: Path, prompt: str) -> bool:
-    print(f"[Runner] Calling LLM (Backend Agent)...")
-    response = call_llm(prompt)
-    files = extract_code_blocks(response)
-    if not files:
-        print(f"[Runner] No code blocks found in LLM response.", file=sys.stderr)
-        print(response)
+    expected = {"Schema.py", "Handler.py", "Controller.py", "Tests.py"}
+
+    for attempt in range(1, 4):
+        print(f"[Runner] LLM attempt {attempt}/3...")
+        response = call_llm(prompt)
+        files = extract_code_blocks(response)
+        if not files:
+            print(f"[Runner] No code blocks found in LLM response. Retrying...", file=sys.stderr)
+            continue
+        written, deleted = write_code_blocks(files, target)
+        for w in written:
+            print(f"[Runner] Wrote {w}")
+        bad = truncated_files(written)
+        if bad:
+            print(f"[Runner] Files appear truncated: {bad}. Retrying...", file=sys.stderr)
+            continue
+        missing = expected - set(files.keys())
+        if missing:
+            print(f"[Runner] Missing files: {missing}. Will retry LLM call.", file=sys.stderr)
+            continue
+        break
+    else:
+        print(f"[Runner] Failed to generate complete code after 3 attempts.", file=sys.stderr)
         return False
-    written = write_code_blocks(files, target)
-    for w in written:
-        print(f"[Runner] Wrote {w}")
 
     test_file = target / "Tests.py"
     if not test_file.exists():
