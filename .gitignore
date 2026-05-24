@@ -153,6 +153,9 @@ yarn.lock
 
 # monorepo: agents tooling (tracked: orchestrator.py, runner.py, personas/*.md)
 
+# architecture diagnostic dumps from AI system broadcasts
+architecture.txt
+
 # draft prompt files for orchestrator --prompt flag
 drafts/
 
