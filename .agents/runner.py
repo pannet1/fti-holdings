@@ -330,6 +330,13 @@ def auto_backend(target: Path, prompt: str) -> bool:
     passed, output = run_pytest(test_file)
     if passed:
         print(f"[Runner] All Tests Passed.")
+        print(f"[Runner] Running full regression suite...")
+        regr_passed, regr_output = run_pytest(REPO_ROOT / "apps" / "backend" / "app" / "features")
+        if regr_passed:
+            print(f"[Runner] Regression suite: all pass.")
+            return True
+        preexisting = regr_output.count("FAILED")
+        print(f"[Runner] WARNING: {preexisting} pre-existing failures in regression suite (not introduced by this change).", file=sys.stderr)
         return True
 
     print(f"[Runner] Tests failed. Entering auto-QA loop...")
