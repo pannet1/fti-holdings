@@ -83,6 +83,12 @@ def main() -> int:
     print("=" * 50)
     print()
 
+    # Audit non-feature app files (main.py, etc.)
+    app_root = BACKEND_DIR / "app"
+    for py_file in sorted(app_root.glob("*.py")):
+        for v in audit_py_file(py_file):
+            all_violations.append(f"    app/{v.lstrip()}")
+
     for name, domain in features.items():
         test_path = f"{FEATURES_DIR}/{domain}/{name}/Tests.py"
         abs_test = BACKEND_DIR / test_path

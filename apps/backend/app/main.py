@@ -84,7 +84,7 @@ def route_signal(
             trades_journal.journal_trade(row)
 
 
-def main():
+def main() -> None:
     try:
         logging.basicConfig(
             level=logging.INFO,
