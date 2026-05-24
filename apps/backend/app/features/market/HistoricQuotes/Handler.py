@@ -7,6 +7,8 @@ class HistoricQuotesHandler:
         self.fetch_history = fetch_history
         self.candles: List[Dict[str, Any]] = []
         self.index = 0
+        self._started = False
+        self._current_time: str = ""
 
     def initialize(self) -> None:
         tf_minutes = int(self.config.timeframe.replace('Min', ''))
@@ -21,17 +23,25 @@ class HistoricQuotesHandler:
         )
         if data is None or len(data) == 0:
             raise ValueError("No historical data found")
-        self.candles = data
+        self.candles = list(reversed(data))
         self.index = 0
+        self._started = True
+
+    def start(self) -> None:
+        if not self._started:
+            self.initialize()
 
     def next_close(self) -> float:
         if not self.candles:
+            self._current_time = ""
             return 0.0
         if self.index >= len(self.candles):
+            self._current_time = str(self.candles[-1].get("time", ""))
             return self.candles[-1]['close']
-        close = self.candles[self.index]['close']
+        candle = self.candles[self.index]
         self.index += 1
-        return close
+        self._current_time = str(candle.get("time", ""))
+        return candle['close']
 
     def get_quote(self) -> Dict[str, Any]:
         if not self.candles:
@@ -39,3 +49,15 @@ class HistoricQuotesHandler:
         if self.index >= len(self.candles):
             return self.candles[-1]
         return self.candles[self.index]
+
+    def get_quotes(self, symbols: List[str]) -> Dict[str, Any]:
+        close = self.next_close()
+        result: Dict[str, Any] = {sym: close for sym in symbols}
+        result["_time"] = self._current_time
+        return result
+
+    def wait_for_quotes(self, symbols: List[str], timeout: float = 10.0) -> Dict[str, Any]:
+        return self.get_quotes(symbols)
+
+    def close(self) -> None:
+        self._started = False

@@ -2,6 +2,11 @@ ITBEES:
   exchange: "BSE"
   tradingsymbol: "ITBEES"
 
+BPCL:
+  exchange: "NSE"
+  tradingsymbol: "BPCL-EQ"
+
 MOTHERSON:
-  exchange: "BSE"
+  exchange: "NSE"
   tradingsymbol: "MOTHERSON"
+

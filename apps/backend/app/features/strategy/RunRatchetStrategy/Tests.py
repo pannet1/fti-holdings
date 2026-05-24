@@ -153,7 +153,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
-        quotes = {"ITBEES": 245.50, "MOTHERSON": 180.75}
+        quotes = {"ITBEES": 245.50}
         signal = inst.run(trades=None, quotes=quotes, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
@@ -162,7 +162,25 @@ class TestRachetStrategy:
         assert signal["quantity"] == 33
         assert signal["price"] == 245.50
 
-    def test_init_buy_uses_last_buy_qty_from_trades(self, tmp_path):
+    def test_reentry_uses_configured_x_when_no_trades_csv(self, tmp_path):
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+            candle=_candle_from_settings(),
+        )
+        signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        assert signal is not None
+        assert signal["action"] == "BUY"
+        assert signal["quantity"] == 33
+
+    def test_reentry_uses_last_buy_qty_from_trades_csv(self, tmp_path):
         trades_csv = tmp_path / "trades.csv"
         trades_csv.write_text(
             "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
@@ -181,52 +199,6 @@ class TestRachetStrategy:
             candle=_candle_from_settings(),
         )
         signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
-        assert signal is not None
-        assert signal["action"] == "BUY"
-        assert signal["quantity"] == 66
-
-    def test_init_buy_reduces_multiplier_when_winning(self, tmp_path):
-        trades_csv = tmp_path / "trades.csv"
-        trades_csv.write_text(
-            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
-            "2026-05-22 10:15,BSE,ITBEES,BUY,245.00,66,ratchet\n"
-        )
-        inst = Rachet(
-            data_dir=str(tmp_path),
-            strategy="ratchet",
-            tradingsymbol="ITBEES",
-            exchange="BSE",
-            quantity=33,
-            start_time="09:30",
-            stop_time="15:00",
-            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
-            perc=0.05,
-            candle=_candle_from_settings(),
-        )
-        signal = inst.run(trades=None, quotes={"ITBEES": 260.00}, positions=None)
-        assert signal is not None
-        assert signal["action"] == "BUY"
-        assert signal["quantity"] == 33
-
-    def test_init_buy_increases_multiplier_when_losing(self, tmp_path):
-        trades_csv = tmp_path / "trades.csv"
-        trades_csv.write_text(
-            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
-            "2026-05-22 10:15,BSE,ITBEES,BUY,245.00,66,ratchet\n"
-        )
-        inst = Rachet(
-            data_dir=str(tmp_path),
-            strategy="ratchet",
-            tradingsymbol="ITBEES",
-            exchange="BSE",
-            quantity=33,
-            start_time="09:30",
-            stop_time="15:00",
-            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
-            perc=0.05,
-            candle=_candle_from_settings(),
-        )
-        signal = inst.run(trades=None, quotes={"ITBEES": 230.00}, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
         assert signal["quantity"] == 99
@@ -312,11 +284,11 @@ class TestRachetStrategy:
             candle=_candle_from_settings(),
         )
         target = 245.00 * 1.05
-        signal = inst.run(trades=None, quotes={"ITBEES": target}, positions=None)
+        signal = inst.run(trades=None, quotes={"ITBEES": target + 0.01}, positions=None)
         assert signal is not None
         assert signal["action"] == "SELL"
         assert signal["quantity"] == 33
-        assert signal["price"] == target
+        assert signal["price"] == target + 0.01
 
     def test_run_returns_none_on_zero_quote(self):
         inst = Rachet(

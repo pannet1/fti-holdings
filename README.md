@@ -1,7 +1,7 @@
 # FTI Holdings — Ratchet Trading Strategy
 
 ## Overview
-A ratchet-style position sizing strategy for BSE ETFs (ITBEES, MOTHERSON).
+A ratchet-style position sizing strategy for BSE ETFs (ITBEES).
 
 ## Holdings
 Each buy order's quantity is the base unit times a multiplier.

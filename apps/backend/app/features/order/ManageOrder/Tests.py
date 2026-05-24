@@ -70,7 +70,7 @@ class TestManageOrderHandler:
         mock_session.order_place.assert_called_once_with(
             tradingsymbol="ITBEES",
             exchange="BSE",
-            transaction_type="BUY",
+            side="BUY",
             quantity=33,
             order_type="LIMIT",
             product="C",

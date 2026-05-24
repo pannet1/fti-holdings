@@ -71,7 +71,8 @@ class Rachet:
 
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
         cmp = quotes.get(self._tradingsymbol, 0)
-        logger.info(f"{self._tradingsymbol} LTP: {cmp}")
+        candle_time = quotes.get("_time", "")
+        logger.info(f"{self._tradingsymbol} LTP: {cmp} at {candle_time}")
 
         if cmp <= 0:
             return None
@@ -84,30 +85,53 @@ class Rachet:
         self._read_holdings(Path(self._data_dir) / "holdings.csv")
 
         if not self._holdings:
-            if self._last_buy_price > 0:
-                if cmp > self._last_buy_price:
-                    qty = self._win_qty
-                else:
-                    qty = self._loss_qty
-            else:
-                qty = self._x
-
+            qty = self._last_buy_qty
+            self._x = qty
+            mult = 1
             return {
                 "action": "BUY",
                 "tradingsymbol": self._tradingsymbol,
                 "exchange": self._exchange,
                 "quantity": qty,
                 "price": cmp,
+                "time": candle_time,
+                "multiplier": mult,
             }
 
-        target = self._avg_price * (1.0 + self._perc)
-        if cmp >= target:
+        sell_target = self._avg_price * (1.0 + self._perc)
+        if cmp > sell_target:
             return {
                 "action": "SELL",
                 "tradingsymbol": self._tradingsymbol,
                 "exchange": self._exchange,
-                "quantity": self._x,
+                "quantity": self._total_qty,
                 "price": cmp,
+                "time": candle_time,
+                "multiplier": 0,
+            }
+
+        last_price = self._holdings[-1].avg_price
+        buy_lower = last_price * (1.0 - self._perc)
+        buy_upper = last_price * (1.0 + self._perc)
+        if cmp <= buy_lower or cmp >= buy_upper:
+            last_qty = self._holdings[-1].quantity
+            ratio = last_qty / self._x
+            closest = min(self._multiplier, key=lambda m: abs(m - ratio))
+            current_idx = self._multiplier.index(closest)
+            if cmp >= buy_upper:
+                next_idx = max(0, current_idx - 1)
+            else:
+                next_idx = min(len(self._multiplier) - 1, current_idx + 1)
+            qty = self._x * self._multiplier[next_idx]
+            self._last_buy_qty = qty
+            return {
+                "action": "BUY",
+                "tradingsymbol": self._tradingsymbol,
+                "exchange": self._exchange,
+                "quantity": qty,
+                "price": cmp,
+                "time": candle_time,
+                "multiplier": self._multiplier[next_idx],
             }
 
         return None

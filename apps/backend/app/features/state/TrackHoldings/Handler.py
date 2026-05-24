@@ -7,7 +7,7 @@ from .Schema import HoldingsRow
 
 logger = logging.getLogger(__name__)
 
-CSV_FIELDS = ["datetime", "exchange", "tradingsymbol", "side", "avg_price", "quantity", "strategy"]
+CSV_FIELDS = ["datetime", "exchange", "tradingsymbol", "side", "avg_price", "quantity", "strategy", "multiplier"]
 
 
 class TrackHoldingsHandler:

@@ -1,5 +1,6 @@
 import pytest
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 from .Handler import AuthenticateBrokerHandler
 
@@ -13,7 +14,14 @@ DUMMY_CREDS = dict(
 
 class TestAuthenticateBrokerHandler:
 
-    def test_reuses_existing_token(self, tmp_path):
+    @patch("broker_ai.finvasia.finvasia.Finvasia")
+    def test_reuses_existing_token(self, mock_finvasia, tmp_path):
+        mock_instance = MagicMock()
+        mock_instance.authenticate.return_value = {
+            "access_token": "session_token_abc",
+            "user_id": "FN137030",
+        }
+        mock_finvasia.return_value = mock_instance
         handler = AuthenticateBrokerHandler()
         token_file = tmp_path / "FN137030.txt"
         token_file.write_text("session_token_abc")

@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 from threading import Lock
 from typing import Any, Dict, List
 
@@ -47,7 +48,7 @@ class StreamQuotesHandler:
         with self._lock:
             self._ltp.update(ltp)
 
-    def get_quotes(self, symbols: List[str]) -> Dict[str, float]:
+    def get_quotes(self, symbols: List[str]) -> Dict[str, Any]:
         result: Dict[str, float] = {}
         with self._lock:
             for sym in symbols:
@@ -56,6 +57,7 @@ class StreamQuotesHandler:
                     val = self._ltp.get(ws_key)
                     if val is not None:
                         result[sym] = val
+        result["_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return result
 
     def wait_for_quotes(self, symbols: List[str], timeout: float = 10.0) -> Dict[str, float]:

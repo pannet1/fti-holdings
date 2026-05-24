@@ -33,7 +33,24 @@ class AuthenticateBrokerHandler:
             content = token_file.read_text().strip()
             if content:
                 logger.info(f"Reusing existing token for {userid}")
-                return {"status": "token_exists", "userid": userid}
+                from broker_ai.finvasia.finvasia import Finvasia
+                fin = Finvasia(
+                    user_id=userid,
+                    password=password,
+                    pin=totp_secret,
+                    vendor_code=vendor_code,
+                    app_key=api_key,
+                    api_secret=api_secret,
+                    imei=imei,
+                    oauth_url=oauth_url,
+                    access_token=content,
+                    refresh_token=refresh_token,
+                    app_key_hash=app_key_hash,
+                )
+                result = fin.authenticate()
+                if not result:
+                    raise RuntimeError(f"Token reuse auth failed for {userid}")
+                return {"status": "token_exists", "userid": userid, "session": fin}
 
         from broker_ai.finvasia.finvasia import Finvasia
         fin = Finvasia(

@@ -5,6 +5,7 @@ import pendulum
 class HistoricQuotesConfig(BaseModel):
     symbol: str
     exchange: str
+    tradingsymbol: str
     timeframe: str = Field(default="1Min")
     start_date: date = Field(default_factory=lambda: pendulum.now().subtract(days=30).date())
     end_date: date = Field(default_factory=lambda: pendulum.now().date())

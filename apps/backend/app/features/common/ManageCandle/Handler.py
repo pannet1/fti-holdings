@@ -30,8 +30,13 @@ class ManageCandleHandler:
             cur = nxt
         return times
 
+    def force_index(self, idx: int) -> None:
+        self._forced_index = idx
+
     @property
     def current_index(self) -> int:
+        if hasattr(self, '_forced_index'):
+            return self._forced_index
         now = pdlm.now("Asia/Kolkata")
         idx = -1
         for i, t in enumerate(self._close_times):

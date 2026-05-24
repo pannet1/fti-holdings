@@ -23,7 +23,7 @@ class ManageOrderHandler:
             order_id = broker_session.order_place(
                 tradingsymbol=tradingsymbol,
                 exchange=exchange,
-                transaction_type=transaction_type,
+                side=transaction_type,
                 quantity=quantity,
                 order_type="LIMIT",
                 product="C",
