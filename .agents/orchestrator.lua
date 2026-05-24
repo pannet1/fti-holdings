@@ -3,52 +3,70 @@
 -- Lazy:   { dir = '.agents', file = 'orchestrator.lua' }
 --
 -- Commands:
---   :Orch feature/X --prompt "..."   scaffold
+--   :Orch feature/X --prompt "..."   scaffold with prompt
 --   :Orch implement/X                 generate code
---   :Orch modify/X "...prompt..."     amend spec
---   :Orch bugfix/X "...prompt..."     document defect
+--   :Orch modify/X                    amend spec (uses current buffer as prompt)
+--   :Orch bugfix/X                    document defect (uses current buffer as prompt)
 --   :Orch delete/X                    purge feature + branch
---   :Orch last                        re-run the last command
+--   :Orch feature/X                   scaffold (no prompt — orchestrator will error)
+--   :OrchLast                         re-run the last command
+--   :OrchToggle                       toggle terminal window
 --
--- The terminal buffer stays open so you see live output as files are written.
--- Neovim autoreads changed buffers when you focus them (<C-w>w, :e!).
+-- For modify/bugfix without --prompt, the current buffer content is read and
+-- passed as the change prompt. The terminal shows live AI output as files write.
 
 local M = {}
 
 local repo_root = vim.fn.getcwd()
 local cmd_base = repo_root .. "/.agents/orchestrator.py"
 
--- Terminal window ID for the orchestrator output
+-- Terminal window
 local term_win = nil
 local term_buf = nil
-local last_cmd = nil
+local last_raw_args = nil
 
-function M.run(args)
-  local cmd = cmd_base .. " " .. args
-  last_cmd = cmd
+function M.run(raw_args)
+  last_raw_args = raw_args
+
+  local args = vim.split(raw_args, "%s+")
+  local first = args[1] or ""
+  local prefix = first:match("^(%w+)/") or ""
+
+  local cmd = cmd_base .. " " .. raw_args
+
+  -- If modify/bugfix and no --prompt flag, read current buffer as prompt
+  if (prefix == "modify" or prefix == "bugfix") and not raw_args:match("%-%-prompt") then
+    local bufnr = vim.api.nvim_get_current_buf()
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local content = table.concat(lines, "\n"):gsub("%s+$", "")
+    if content ~= "" then
+      local tmpfile = os.tmpname() .. ".md"
+      local file = io.open(tmpfile, "w")
+      if file then
+        file:write(content)
+        file:close()
+        cmd = cmd_base .. " " .. first .. " --prompt " .. tmpfile
+      end
+    end
+  end
+
   local prev_win = vim.api.nvim_get_current_win()
 
-  -- If terminal already exists and is valid, reuse it
+  -- Reuse existing terminal if valid
   if term_buf and vim.api.nvim_buf_is_valid(term_buf) then
     local chan = vim.api.nvim_buf_get_var(term_buf, "terminal_job_id")
     vim.fn.chansend(chan, cmd .. "\n")
-    -- Stay in the previous window, don't steal focus
     vim.api.nvim_set_current_win(prev_win)
     return
   end
 
-  -- Open a new terminal in a horizontal split at the bottom
+  -- Open terminal split
   vim.cmd("belowright split | terminal")
   term_buf = vim.api.nvim_get_current_buf()
   term_win = vim.api.nvim_get_current_win()
-
-  -- Resize to ~10 lines
   vim.api.nvim_win_set_height(term_win, 10)
-
-  -- Return focus to the previous window (user stays in their code buffer)
   vim.api.nvim_set_current_win(prev_win)
 
-  -- Set up auto-cleanup on buffer delete
   vim.api.nvim_buf_attach(term_buf, false, {
     on_detach = function()
       term_win = nil
@@ -56,15 +74,14 @@ function M.run(args)
     end,
   })
 
-  -- Send the command once the shell is ready
   vim.fn.jobwait({}, 100)
   local chan = vim.api.nvim_buf_get_var(term_buf, "terminal_job_id")
   vim.fn.chansend(chan, cmd .. "\n")
 end
 
 function M.last()
-  if last_cmd then
-    M.run(last_cmd:gsub("^" .. cmd_base .. " ", ""))
+  if last_raw_args then
+    M.run(last_raw_args)
   else
     print("[orchestrator] No previous command.")
   end
@@ -91,10 +108,10 @@ vim.api.nvim_create_user_command("OrchToggle", function()
   M.toggle()
 end, {})
 
--- Keymaps (normal mode)
+-- Keymaps
 vim.keymap.set("n", "<leader>or", "<cmd>OrchLast<CR>", { desc = "Re-run last orchestrator command" })
 vim.keymap.set("n", "<leader>ot", "<cmd>OrchToggle<CR>", { desc = "Toggle orchestrator terminal" })
-vim.keymap.set("n", "<leader>os", '<cmd>Orch feature/<CR>', { desc = "Scaffold new feature (type name + --prompt)" })
-vim.keymap.set("n", "<leader>oi", '<cmd>Orch implement/<CR>', { desc = "Implement feature (type name)" })
+vim.keymap.set("n", "<leader>os", '<cmd>Orch feature/<CR>', { desc = "Scaffold (type: Orch feature/X --prompt ...)" })
+vim.keymap.set("n", "<leader>oi", '<cmd>Orch implement/<CR>', { desc = "Implement (type: Orch implement/X)" })
 
-print("[orchestrator] Loaded. Commands: :Orch, :OrchLast, :OrchToggle")
+print("[orchestrator] Loaded. :Orch modify/X reads current buffer as prompt.")
