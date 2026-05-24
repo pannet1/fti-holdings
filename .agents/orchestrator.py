@@ -386,7 +386,7 @@ def check_branch(action: str, prefix: str = "feature") -> str:
     return branch
 
 
-def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
+def scaffold_new_feature(domain: str, action: str, overview: str = "", no_controller: bool = False) -> Path:
     slice_dir = FEATURES_DIR / domain / action if domain else FEATURES_DIR / action
     slice_dir.mkdir(parents=True, exist_ok=True)
 
@@ -412,13 +412,16 @@ def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
         (slice_dir / "spec.md").write_text(spec)
 
     for fname, template in CODE_TEMPLATES.items():
+        if no_controller and fname == "Controller.py":
+            continue
         content = template.format(action=action).lstrip("\n")
         (slice_dir / fname).write_text(content)
 
     (slice_dir / "__init__.py").touch()
 
     label = f"{domain}/{action}" if domain else action
-    print(f"\nScaffolded new feature: {label}\n")
+    note = " (no controller)" if no_controller else ""
+    print(f"\nScaffolded new feature: {label}{note}\n")
     return slice_dir
 
 
@@ -453,14 +456,71 @@ def resolve_change_prompt(rest: str, prompt_content: str, feature_name: str, pre
     return rest.strip()
 
 
-def _write_spec_amendment(feature_dir: Path, section: str, prompt: str) -> None:
+def _rewrite_spec_with_ai(feature_dir: Path, change_prompt: str, section: str) -> bool:
     spec_path = feature_dir / "spec.md"
     existing = spec_path.read_text() if spec_path.exists() else ""
-    amendment = f"\n## {section}\n\n{prompt}\n"
+
+    root_spec = REPO_ROOT / "SPEC.md"
+    arch_blueprint = root_spec.read_text() if root_spec.exists() else ""
+
+    system_prompt = (
+        "You are a spec writer maintaining a feature specification. "
+        "You will receive the current spec.md and a change request. "
+        "Rewrite the ENTIRE spec.md cleanly, integrating the changes into the main body. "
+        "Remove contradictions and outdated constraints. "
+        "Output ONLY the rewritten markdown spec — no preamble, no explanation.\n\n"
+        "Format:\n"
+        "  # <Action> — <Domain> Feature\n"
+        "  ## Overview\n"
+        "  ...\n"
+        "  ## Input / Output\n"
+        "  | Direction | Format | Description |\n"
+        "  ...\n"
+        "  ## Business Logic Constraints\n"
+        "  ...\n"
+        "  ## Error Cases\n"
+        "  ...\n"
+        "  ## Dependencies\n"
+        "  ...\n"
+        "  ## Code Standards\n"
+        "  All code must use type annotations per PEP 484.\n"
+    )
+    if arch_blueprint:
+        system_prompt = "Architecture Blueprint:\n" + arch_blueprint + "\n\n" + system_prompt
+
+    project_id = str(uuid.uuid4())
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer public",
+        "x-opencode-project": project_id,
+        "x-opencode-session": _zen_session_id(),
+        "x-opencode-request": str(uuid.uuid4()),
+        "x-opencode-client": "python-script",
+        "User-Agent": "opencode/1.15.4",
+    }
+    payload = {
+        "model": _zen_model(),
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"## Current spec.md\n\n{existing}\n\n## Change Request ({section})\n\n{change_prompt}"},
+        ],
+        "max_tokens": 2048,
+        "temperature": 0.3,
+    }
+
+    rewritten = _zen_chat(headers, payload)
+    if rewritten:
+        spec_path.write_text(rewritten)
+        print(f"[Orchestrator] spec.md rewritten cleanly by AI ({section})")
+        return True
+
+    amendment = f"\n## {section}\n\n{change_prompt}\n"
     if existing:
         spec_path.write_text(existing + amendment)
     else:
         spec_path.write_text(amendment)
+    print("[Orchestrator] Zen API unavailable — appended amendment to spec.md", file=sys.stderr)
+    return False
 
 
 def run_runner(persona_key: str, target: Path, task: str, error_path: Optional[Path] = None) -> bool:
@@ -486,7 +546,7 @@ def run_runner(persona_key: str, target: Path, task: str, error_path: Optional[P
     return result.returncode == 0
 
 
-def orchestrate(request: str, prompt_content: str = "") -> None:
+def orchestrate(request: str, prompt_content: str = "", no_controller: bool = False) -> None:
     cmd = request.strip().split(None, 1)
     verb = cmd[0] if cmd else ""
     rest = cmd[1] if len(cmd) > 1 else ""
@@ -506,7 +566,7 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
         description = resolve_change_prompt(rest, prompt_content, action, "feature")
         domain, inferred = infer_domain_action(action)
         check_branch(inferred, "feature")
-        scaffold_new_feature(domain, inferred, description)
+        scaffold_new_feature(domain, inferred, description, no_controller=no_controller)
         print("=" * 60)
         print("THEN RUN:")
         print(f"  ./.agents/orchestrator.py implement/{inferred}")
@@ -582,7 +642,7 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
         change_prompt = resolve_change_prompt(rest, prompt_content, feature_name, "modify")
-        _write_spec_amendment(feature_dir, "Modification Request", change_prompt)
+        _rewrite_spec_with_ai(feature_dir, change_prompt, "Modification Request")
         check_branch(feature_name, "modify")
         amend_spec(
             feature_dir,
@@ -600,7 +660,7 @@ def orchestrate(request: str, prompt_content: str = "") -> None:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
         change_prompt = resolve_change_prompt(rest, prompt_content, feature_name, "bugfix")
-        _write_spec_amendment(feature_dir, "Defect Resolution", change_prompt)
+        _rewrite_spec_with_ai(feature_dir, change_prompt, "Defect Resolution")
         check_branch(feature_name, "bugfix")
         amend_spec(
             feature_dir,
@@ -676,6 +736,10 @@ def parse_args() -> argparse.Namespace:
         "--model", "-m",
         help="Override Zen API model for this run (e.g. --model claude-sonnet-4-5)",
     )
+    parser.add_argument(
+        "--no-controller", action="store_true",
+        help="Skip Controller.py generation (for background workers)",
+    )
     args = parser.parse_args()
     if args.model:
         MODEL_CONFIG.write_text(json.dumps({"model": args.model}) + "\n")
@@ -704,4 +768,4 @@ if __name__ == "__main__":
             prompt_content = path.read_text().strip()
         else:
             prompt_content = args.prompt.strip()
-    orchestrate(request, prompt_content)
+    orchestrate(request, prompt_content, no_controller=args.no_controller)

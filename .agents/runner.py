@@ -223,10 +223,24 @@ def extract_code_blocks(text: str) -> dict[str, str]:
 
 def write_code_blocks(files: dict[str, str], target: Path) -> list[Path]:
     written: list[Path] = []
+    expected = {"Schema.py", "Handler.py", "Controller.py", "Tests.py"}
+    produced = set()
+
     for fname, code in files.items():
         path = target / fname
         write_file(path, code + "\n")
         written.append(path)
+        produced.add(fname)
+
+    # Delete files the AI intentionally omitted from the slice
+    for fname in expected:
+        if fname not in produced:
+            path = target / fname
+            if path.exists():
+                path.unlink()
+                written.append(path)
+                print(f"[Runner] Deleted {fname} (absent from AI output)")
+
     return written
 
 
