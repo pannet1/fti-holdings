@@ -72,10 +72,15 @@ def _zen_model() -> str:
 
 
 def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
+    root_spec = REPO_ROOT / "SPEC.md"
+    arch_blueprint = root_spec.read_text() if root_spec.exists() else ""
+
     system_prompt = (
         "You are a spec writer for a software project. "
         "Generate a structured feature specification in markdown.\n\n"
-        "Use this exact format:\n"
+        "Here is the project's architectural blueprint:\n"
+        + arch_blueprint +
+        "\n\nUse this exact format for the feature spec:\n"
         "  # <Action> — <Domain> Feature\n"
         "  ## Overview\n"
         "  <description>\n"
@@ -88,7 +93,7 @@ def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
         "  * <rules>\n"
         "  ## Error Cases\n"
         "  | Condition | Error | Message |\n"
-        "  |-----------|-------|---------|\n"
+        "  |-----------|-------|-------------|\n"
         "  | <when> | <type> | <message> |\n"
         "  ## Dependencies\n"
         "  * <libraries, config>\n"

@@ -137,6 +137,13 @@ def build_prompt(persona: str, target: Path, target_files: dict, task: str, erro
     parts.append("")
     parts.append(f"## Target Directory\n{target}")
     parts.append("")
+
+    # Inject root SPEC.md as the architectural blueprint
+    root_spec = REPO_ROOT / "SPEC.md"
+    if root_spec.exists():
+        parts.append("## Architecture Blueprint (SPEC.md)\n" + root_spec.read_text())
+        parts.append("")
+
     spec = target_files.get("spec.md", "")
     if spec:
         parts.append("## Specification (spec.md)\n" + spec)
