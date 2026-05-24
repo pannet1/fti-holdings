@@ -152,6 +152,9 @@ def _zen_chat(headers: dict, payload: dict) -> str | None:
             content = content.split("\n", 1)[1] if "\n" in content else content[3:]
             if content.endswith("```"):
                 content = content[:-3].strip()
+        if not content and model != fallbacks[-1]:
+            print(f"[Orchestrator] Model '{model}' returned empty response. Trying next...", file=sys.stderr)
+            continue
         if model != selected:
             MODEL_CONFIG.write_text(json.dumps({"model": model}) + "\n")
             print(f"[Orchestrator] Fallback: model config updated to '{model}'", file=sys.stderr)
@@ -564,12 +567,12 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     # --- feature/X: scaffold new feature ---
     if prefix == "feature":
         description = resolve_change_prompt(rest, prompt_content, action, "feature")
-        domain, inferred = infer_domain_action(action)
-        check_branch(inferred, "feature")
-        scaffold_new_feature(domain, inferred, description, no_controller=no_controller)
+        domain = KNOWN_FEATURES.get(action, "")
+        check_branch(action, "feature")
+        scaffold_new_feature(domain, action, description, no_controller=no_controller)
         print("=" * 60)
         print("THEN RUN:")
-        print(f"  ./.agents/orchestrator.py implement/{inferred}")
+        print(f"  ./.agents/orchestrator.py implement/{action}")
         print("=" * 60)
         return
 
