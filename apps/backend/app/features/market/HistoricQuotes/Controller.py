@@ -3,7 +3,7 @@ from .Schema import HistoricQuotesConfig
 from .Handler import HistoricQuotesHandler
 
 class HistoricQuotesController:
-    def __init__(self, raw_config: Dict[str, Any], fetch_history: Callable[[str, str, str, str, int], Optional[List[Dict[str, Any]]]]):
+    def __init__(self, raw_config: Dict[str, Any], fetch_history: Callable[[str, str, str, str, int], Optional[List[Dict[str, Any]]]]) -> None:
         self.config = HistoricQuotesConfig(**raw_config)
         self.handler = HistoricQuotesHandler(self.config, fetch_history)
         self.handler.initialize()

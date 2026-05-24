@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional, Callable
 from .Schema import HistoricQuotesConfig
 
 class HistoricQuotesHandler:
-    def __init__(self, config: HistoricQuotesConfig, fetch_history: Callable[[str, str, str, str, int], Optional[List[Dict[str, Any]]]]):
+    def __init__(self, config: HistoricQuotesConfig, fetch_history: Callable[[str, str, str, str, int], Optional[List[Dict[str, Any]]]]) -> None:
         self.config = config
         self.fetch_history = fetch_history
         self.candles: List[Dict[str, Any]] = []

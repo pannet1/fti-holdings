@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class TrackRunStateHandler:
 
-    def __init__(self, data_dir: str, run_file: str = "run.txt"):
+    def __init__(self, data_dir: str, run_file: str = "run.txt") -> None:
         self.data_dir = Path(data_dir)
         self.run_filepath = self.data_dir / run_file
 
@@ -18,7 +18,7 @@ class TrackRunStateHandler:
         except FileNotFoundError:
             return set()
 
-    def _save_state(self, setting_file: str):
+    def _save_state(self, setting_file: str) -> None:
         self.run_filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(self.run_filepath, "a") as f:
             f.write(setting_file + "\n")

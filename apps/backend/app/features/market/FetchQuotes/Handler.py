@@ -1,12 +1,12 @@
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class FetchQuotesHandler:
 
-    def execute(self, symbols: List[str], broker_session: Any = None) -> dict:
+    def execute(self, symbols: List[str], broker_session: Optional[Any] = None) -> dict:
         if not symbols:
             return {"status": "empty", "quotes": {}}
 

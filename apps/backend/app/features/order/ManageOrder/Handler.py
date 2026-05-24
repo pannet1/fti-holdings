@@ -1,12 +1,12 @@
 import logging
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class ManageOrderHandler:
 
-    def execute(self, tradingsymbol: str, exchange: str, transaction_type: str, quantity: int, price: float, broker_session: Any = None) -> dict:
+    def execute(self, tradingsymbol: str, exchange: str, transaction_type: str, quantity: int, price: float, broker_session: Optional[Any] = None) -> dict:
         if broker_session is None:
             raise ValueError("Authenticated broker session required. Run AuthenticateBroker first.")
 

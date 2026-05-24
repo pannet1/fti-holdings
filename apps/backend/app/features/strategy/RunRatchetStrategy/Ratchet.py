@@ -26,7 +26,7 @@ class Rachet:
             start=O_SETG.get("start_time", "09:00"),
             stop=O_SETG.get("stop_time", "15:30"),
         )
-        self._last_candle_idx: int = -1
+        self._last_candle_idx: int = -2
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
         self._avg_price: float = 0.0

@@ -16,7 +16,7 @@ GLOBAL_PASS=0
 GLOBAL_FAIL=0
 ALL_PASS_NAMES=""
 ALL_FAIL_NAMES=""
-ALL_CODE_VIOS=""
+
 
 audit_code_standards() {
     local dir="$1"
@@ -88,17 +88,11 @@ audit_code_standards() {
 while IFS=$'\t' read -r name domain; do
     test_rel="$FEATURES_REL/$domain/$name/Tests.py"
     test_abs="$BACKEND_DIR/$test_rel"
-    feat_dir="$BACKEND_DIR/$FEATURES_REL/$domain/$name"
     if [ ! -f "$test_abs" ]; then
         continue
     fi
     TOTAL=$((TOTAL + 1))
     echo "  [$domain/$name]"
-
-    vios=$(audit_code_standards "$feat_dir" "$domain/$name")
-    if [ -n "$vios" ]; then
-        ALL_CODE_VIOS="$ALL_CODE_VIOS$vios"$'\n'
-    fi
 
     output=$(uv run --directory "$BACKEND_DIR" python -m pytest "$test_rel" -v 2>&1) || true
     while IFS= read -r line; do
@@ -128,14 +122,17 @@ for name, domain in data['known_features'].items():
     print(f'{name}\t{domain}')
 ")
 
+# Code standards audit via Python AST
+AUDIT_SCRIPT=".agents/audit_standards.py"
+AUDIT_OUTPUT=$(python3 "$AUDIT_SCRIPT" "$BACKEND_DIR/$FEATURES_REL" 2>&1 || true)
 echo "=========================================="
 echo " Code Standards Violations"
 echo "=========================================="
 echo ""
-if [ -z "$ALL_CODE_VIOS" ]; then
+if [ -z "$AUDIT_OUTPUT" ]; then
     echo "  (none)"
 else
-    echo -n "$ALL_CODE_VIOS"
+    echo "$AUDIT_OUTPUT"
 fi
 
 echo "=========================================="

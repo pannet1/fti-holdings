@@ -28,6 +28,13 @@ class AuthenticateBrokerHandler:
                 "Check apps/backend/data/auth.yaml has userid, password, and totp_secret."
             )
 
+        token_file = Path(token_path)
+        if token_file.exists():
+            content = token_file.read_text().strip()
+            if content:
+                logger.info(f"Reusing existing token for {userid}")
+                return {"status": "token_exists", "userid": userid}
+
         from broker_ai.finvasia.finvasia import Finvasia
         fin = Finvasia(
             user_id=userid,
@@ -47,7 +54,6 @@ class AuthenticateBrokerHandler:
         if not result:
             raise RuntimeError(f"Authentication failed for {userid}")
 
-        token_file = Path(token_path)
         token_file.parent.mkdir(parents=True, exist_ok=True)
         with open(token_file, "w") as f:
             f.write(result.get("access_token", ""))
