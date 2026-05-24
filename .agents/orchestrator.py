@@ -15,8 +15,12 @@ Usage:
 
 import argparse
 import json
+import random
+import string
 import subprocess
 import sys
+import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -39,6 +43,74 @@ KNOWN_FEATURES: dict[str, str] = FEATURES_CFG.get("known_features", {})
 DOMAIN_KEYWORDS: dict[str, tuple[str, str]] = {
     k: tuple(v) for k, v in FEATURES_CFG.get("domain_keywords", {}).items()
 }
+
+ZEN_URL = "https://opencode.ai/zen/v1/chat/completions"
+
+
+def _zen_session_id() -> str:
+    alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_"
+    return "ses_" + "".join(random.choices(alphabet, k=26))
+
+
+def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
+    system_prompt = (
+        "You are a spec writer for a software project. "
+        "Generate a structured feature specification in markdown.\n\n"
+        "Use this exact format:\n"
+        "  # <Action> — <Domain> Feature\n"
+        "  ## Overview\n"
+        "  <description>\n"
+        "  ## Input / Output\n"
+        "  | Direction | Format | Description |\n"
+        "  |-----------|--------|-------------|\n"
+        "  | Input | <...> | <...> |\n"
+        "  | Output | <...> | <...> |\n"
+        "  ## Business Logic Constraints\n"
+        "  * <rules>\n"
+        "  ## Error Cases\n"
+        "  | Condition | Error | Message |\n"
+        "  |-----------|-------|---------|\n"
+        "  | <when> | <type> | <message> |\n"
+        "  ## Dependencies\n"
+        "  * <libraries, config>\n"
+        "  ## Code Standards\n"
+        "  All code must use type annotations per PEP 484.\n\n"
+        "Output ONLY the markdown spec — no preamble, no explanation."
+    )
+    project_id = str(uuid.uuid4())
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer public",
+        "x-opencode-project": project_id,
+        "x-opencode-session": _zen_session_id(),
+        "x-opencode-request": str(uuid.uuid4()),
+        "x-opencode-client": "python-script",
+        "User-Agent": "opencode/1.15.4",
+    }
+    payload = {
+        "model": "deepseek-v4-flash-free",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Feature: {action}\nDomain: {domain or '(none)'}\n\nDescription:\n{prompt}"},
+        ],
+        "max_tokens": 2048,
+        "temperature": 0.3,
+    }
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(ZEN_URL, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.loads(resp.read())
+        content = body["choices"][0]["message"]["content"].strip()
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+            if content.endswith("```"):
+                content = content[:-3].strip()
+        return content
+    except Exception as e:
+        print(f"[Orchestrator] Zen API error: {e}", file=sys.stderr)
+        return None
+
 
 SPEC_TEMPLATE = """\
 # {action} — {domain_title} Feature
@@ -269,13 +341,26 @@ def scaffold_new_feature(domain: str, action: str, overview: str = "") -> Path:
     slice_dir = FEATURES_DIR / domain / action if domain else FEATURES_DIR / action
     slice_dir.mkdir(parents=True, exist_ok=True)
 
-    overview_text = format_spec_overview(overview)
-    spec = SPEC_TEMPLATE.format(
-        domain_title=domain.title(),
-        action=action,
-        overview=overview_text,
-    ).rstrip("\n")
-    (slice_dir / "spec.md").write_text(spec)
+    if overview:
+        ai_spec = generate_spec_with_ai(domain, action, overview)
+        if ai_spec:
+            (slice_dir / "spec.md").write_text(ai_spec)
+        else:
+            overview_text = format_spec_overview(overview)
+            spec = SPEC_TEMPLATE.format(
+                domain_title=domain.title() if domain else action,
+                action=action,
+                overview=overview_text,
+            ).rstrip("\n")
+            (slice_dir / "spec.md").write_text(spec)
+            print("[Orchestrator] Zen API unavailable — using template spec.md", file=sys.stderr)
+    else:
+        spec = SPEC_TEMPLATE.format(
+            domain_title=domain.title() if domain else action,
+            action=action,
+            overview=DEFAULT_OVERVIEW,
+        ).rstrip("\n")
+        (slice_dir / "spec.md").write_text(spec)
 
     for fname, template in CODE_TEMPLATES.items():
         content = template.format(action=action).lstrip("\n")
