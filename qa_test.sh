@@ -14,7 +14,11 @@ echo ""
 TOTAL=0
 PASSED=0
 FAILED=0
-FAILED_NAMES=""
+ALL_PASS_NAMES=""
+ALL_FAIL_NAMES=""
+
+GLOBAL_PASS=0
+GLOBAL_FAIL=0
 
 while IFS=$'\t' read -r name domain; do
     test_rel="$FEATURES_REL/$domain/$name/Tests.py"
@@ -23,16 +27,27 @@ while IFS=$'\t' read -r name domain; do
         continue
     fi
     TOTAL=$((TOTAL + 1))
-    printf "  %-30s " "$domain/$name"
-    output=$(uv run --directory "$BACKEND_DIR" python -m pytest "$test_rel" -q 2>&1) && {
-        echo "PASS"
-        PASSED=$((PASSED + 1))
-    } || {
-        last=$(echo "$output" | tail -1)
-        echo "FAIL ($last)"
-        FAILED=$((FAILED + 1))
-        FAILED_NAMES="$FAILED_NAMES    $domain/$name ($last)"$'\n'
-    }
+    echo "  [$domain/$name]"
+    output=$(uv run --directory "$BACKEND_DIR" python -m pytest "$test_rel" -v 2>&1) || true
+    while IFS= read -r line; do
+        case "$line" in
+            *" PASSED"*)
+                testname="${line%% PASSED*}"
+                testname="${testname##*::}"
+                echo "    PASS  $testname"
+                GLOBAL_PASS=$((GLOBAL_PASS + 1))
+                ALL_PASS_NAMES="$ALL_PASS_NAMES      $domain/$name :: $testname"$'\n'
+                ;;
+            *" FAILED"*)
+                testname="${line%% FAILED*}"
+                testname="${testname##*::}"
+                echo "    FAIL  $testname"
+                GLOBAL_FAIL=$((GLOBAL_FAIL + 1))
+                ALL_FAIL_NAMES="$ALL_FAIL_NAMES      $domain/$name :: $testname"$'\n'
+                ;;
+        esac
+    done <<< "$output"
+    echo ""
 done < <(python3 -c "
 import json
 with open('$FEATURES_JSON') as f:
@@ -41,20 +56,20 @@ for name, domain in data['known_features'].items():
     print(f'{name}\t{domain}')
 ")
 
-echo ""
 echo "=========================================="
-echo " Summary: $PASSED/$TOTAL passed"
-if [ "$FAILED" -gt 0 ]; then
-    echo " Failures:"
-    echo -n "$FAILED_NAMES"
+echo " All Tests"
+echo "=========================================="
+echo ""
+echo "  Passing:"
+echo -n "$ALL_PASS_NAMES"
+echo ""
+echo "  Failing:"
+if [ -z "$ALL_FAIL_NAMES" ]; then
+    echo "    (none)"
+else
+    echo -n "$ALL_FAIL_NAMES"
 fi
+echo ""
 echo "=========================================="
-echo ""
-
-echo ""
-echo "--- Full Suite Regression (all features) ---"
-full_output=$(uv run --directory "$BACKEND_DIR" python -m pytest "$FEATURES_REL" -q 2>&1) || true
-full_total=$(echo "$full_output" | tail -1 | grep -oP '\d+(?= passed)' || echo "0")
-full_failed=$(echo "$full_output" | tail -1 | grep -oP '\d+(?= failed)' || echo "0")
-echo "  Total: $full_total passed, $full_failed failed"
-echo ""
+echo " Summary: $GLOBAL_PASS passed, $GLOBAL_FAIL failed, $TOTAL feature slices"
+echo "=========================================="
