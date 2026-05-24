@@ -1,6 +1,10 @@
--- orchestrator.lua — Neovim integration for the orchestration harness
--- Source:  luafile orchestrator.lua
--- Lazy:   { dir = '.', file = 'orchestrator.lua' }
+-- fti-orchestrator — Neovim plugin for the orchestration harness
+-- Lazy spec:
+--   {
+--     dir = "~/programs/python/github.com/pannet1/fti-holdings/nvim/orchestrator",
+--     name = "fti-orch",
+--     cond = function() return vim.fn.getcwd():match("fti%-holdings") end,
+--   }
 --
 -- Commands:
 --   :Orch feature/X --prompt "..."   scaffold with prompt
