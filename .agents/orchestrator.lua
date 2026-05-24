@@ -12,8 +12,9 @@
 --   :OrchLast                         re-run the last command
 --   :OrchToggle                       toggle terminal window
 --
--- For modify/bugfix without --prompt, the current buffer content is read and
--- passed as the change prompt. The terminal shows live AI output as files write.
+-- For commands that expect a prompt (feature, modify, bugfix), the current
+-- buffer is read automatically when no --prompt flag is given. The terminal
+-- shows live AI output as files write.
 
 local M = {}
 
@@ -34,8 +35,9 @@ function M.run(raw_args)
 
   local cmd = cmd_base .. " " .. raw_args
 
-  -- If modify/bugfix and no --prompt flag, read current buffer as prompt
-  if (prefix == "modify" or prefix == "bugfix") and not raw_args:match("%-%-prompt") then
+  -- If no --prompt flag and command expects one, read current buffer as prompt
+  local prompt_needed = prefix ~= "implement" and prefix ~= "delete" and prefix ~= ""
+  if prompt_needed and not raw_args:match("%-%-prompt") then
     local bufnr = vim.api.nvim_get_current_buf()
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
     local content = table.concat(lines, "\n"):gsub("%s+$", "")
@@ -114,4 +116,4 @@ vim.keymap.set("n", "<leader>ot", "<cmd>OrchToggle<CR>", { desc = "Toggle orches
 vim.keymap.set("n", "<leader>os", '<cmd>Orch feature/<CR>', { desc = "Scaffold (type: Orch feature/X --prompt ...)" })
 vim.keymap.set("n", "<leader>oi", '<cmd>Orch implement/<CR>', { desc = "Implement (type: Orch implement/X)" })
 
-print("[orchestrator] Loaded. :Orch modify/X reads current buffer as prompt.")
+print("[orchestrator] Loaded. :Orch feature/modify/bugfix/X reads current buffer as prompt.")
