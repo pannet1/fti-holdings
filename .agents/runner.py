@@ -243,6 +243,31 @@ def write_code_blocks(files: dict[str, str], target: Path) -> tuple[list[Path], 
     return written, deleted
 
 
+def validate_code_standards(written: list[Path]) -> list[str]:
+    violations: list[str] = []
+    for p in written:
+        if not p.exists() or p.suffix != ".py":
+            continue
+        lines = p.read_text().splitlines()
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("#") and "noqa" not in stripped:
+                violations.append(f"{p.name}:{i} comment found")
+            if "print(" in stripped and "logger" not in stripped:
+                violations.append(f"{p.name}:{i} print() found")
+        # Check function defs for missing return types
+        for m in re.finditer(r'^\s*def (\w+)\(.*\)(?:\s*->\s*\w+)?\s*:', lines, re.MULTILINE):
+            body = "\n".join(lines)
+        for m in re.finditer(r'^(?:    )*def (\w+)\(', body, re.MULTILINE):
+            fn_line = m.group(0)
+            rest = body[m.end():].lstrip()
+            end_idx = rest.find("\n")
+            sig_line = fn_line + rest[:end_idx] if end_idx > 0 else fn_line + rest
+            if "->" not in sig_line and not sig_line.startswith("def test_"):
+                violations.append(f"{p.name}: missing return type on {m.group(1)}")
+    return violations
+
+
 def truncated_files(written: list[Path]) -> list[str]:
     truncated: list[str] = []
     for p in written:
@@ -285,6 +310,9 @@ def auto_backend(target: Path, prompt: str) -> bool:
         if bad:
             print(f"[Runner] Files appear truncated: {bad}. Retrying...", file=sys.stderr)
             continue
+        std_violations = validate_code_standards(written)
+        if std_violations:
+            print(f"[Runner] Code standard violations:\n  " + "\n  ".join(std_violations), file=sys.stderr)
         missing = expected - set(files.keys())
         if missing:
             print(f"[Runner] Missing files: {missing}. Will retry LLM call.", file=sys.stderr)
