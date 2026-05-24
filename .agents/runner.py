@@ -1,34 +1,114 @@
 """
 Runner Engine — generic sub-agent executor.
 
-Pipes persona + spec.md + existing code to `opencode run --format json`,
+Pipes persona + spec.md + existing code to the Zen API,
 extracts Python code blocks from the response, writes them to disk,
 and runs pytest in an auto-correction loop.
 
 Usage:
-    python .agents/runner.py \\
-        --persona .agents/personas/backend_agent.md \\
-        --target apps/backend/app/features/broker/AuthenticateBroker/ \\
-        --task "Implement the feature per spec.md" \\
+    python .agents/runner.py \
+        --persona .agents/personas/backend_agent.md \
+        --target apps/backend/app/features/broker/AuthenticateBroker/ \
+        --task "Implement the feature per spec.md" \
         --api
 
-    python .agents/runner.py \\
-        --persona .agents/personas/qa_agent.md \\
-        --target apps/backend/app/features/strategy/RunRatchetStrategy/ \\
-        --error /tmp/pytest_errors.txt \\
+    python .agents/runner.py \
+        --persona .agents/personas/qa_agent.md \
+        --target apps/backend/app/features/strategy/RunRatchetStrategy/ \
+        --error /tmp/pytest_errors.txt \
         --api
 """
 
 import argparse
 import json
+import random
 import re
+import string
 import subprocess
 import sys
+import urllib.request
+import uuid
 from pathlib import Path
 from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+AGENTS_DIR = REPO_ROOT / ".agents"
+MODEL_CONFIG = AGENTS_DIR / "model_config.json"
 MAX_QA_LOOPS = 3
+
+ZEN_URL = "https://opencode.ai/zen/v1/chat/completions"
+
+ZEN_FALLBACKS = [
+    "deepseek-v4-flash-free",
+    "nemotron-3-super-free",
+    "minimax-m2.5-free",
+    "qwen3.6-plus-free",
+]
+
+
+def _zen_session_id() -> str:
+    alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_"
+    return "ses_" + "".join(random.choices(alphabet, k=26))
+
+
+def _zen_model() -> str:
+    if MODEL_CONFIG.exists():
+        try:
+            cfg = json.loads(MODEL_CONFIG.read_text())
+            return cfg.get("model", ZEN_FALLBACKS[0])
+        except Exception:
+            pass
+    return ZEN_FALLBACKS[0]
+
+
+def _zen_chat(prompt: str) -> str | None:
+    fallbacks = ZEN_FALLBACKS[:]
+    selected = _zen_model()
+    if selected in fallbacks:
+        fallbacks.remove(selected)
+    fallbacks.insert(0, selected)
+
+    project_id = str(uuid.uuid4())
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer public",
+        "x-opencode-project": project_id,
+        "x-opencode-session": _zen_session_id(),
+        "x-opencode-request": str(uuid.uuid4()),
+        "x-opencode-client": "python-script",
+        "User-Agent": "opencode/1.15.4",
+    }
+
+    for model in fallbacks:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.3,
+        }
+        data = json.dumps(payload).encode()
+        req = urllib.request.Request(ZEN_URL, data=data, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                body = json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                print(f"[Runner] Model '{model}' unavailable (free tier ended). Trying next...", file=sys.stderr)
+                continue
+            print(f"[Runner] Zen API error ({model}): {e}", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"[Runner] Zen API error ({model}): {e}", file=sys.stderr)
+            return None
+
+        content = body["choices"][0]["message"]["content"].strip()
+        if model != selected:
+            MODEL_CONFIG.write_text(json.dumps({"model": model}) + "\n")
+            print(f"[Runner] Fallback: model config updated to '{model}'", file=sys.stderr)
+        return content
+
+    print("[Runner] No working model found. Run ./.agents/select_model.py to pick one.", file=sys.stderr)
+    return None
 
 
 def read_file(path: Path) -> str:
@@ -84,47 +164,53 @@ def build_prompt(persona: str, target: Path, target_files: dict, task: str, erro
     return "\n".join(parts)
 
 
-def call_opencode(prompt: str) -> str:
-    result = subprocess.run(
-        ["opencode", "run", "--format", "json", "--dangerously-skip-permissions"],
-        input=prompt,
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-        timeout=600,
-    )
-    if result.returncode != 0:
-        print(f"[Runner] opencode run failed:\n{result.stderr}", file=sys.stderr)
+def call_llm(prompt: str) -> str:
+    response = _zen_chat(prompt)
+    if response is None:
+        print(f"[Runner] LLM call failed.", file=sys.stderr)
         sys.exit(1)
-
-    texts: list[str] = []
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            ev = json.loads(line)
-            if ev.get("type") == "text":
-                texts.append(ev["part"]["text"])
-        except json.JSONDecodeError:
-            continue
-    return "".join(texts)
+    return response
 
 
 def extract_code_blocks(text: str) -> dict[str, str]:
     files: dict[str, str] = {}
-    pattern = re.compile(
-        r'^###\s+(\S+)\s*\n'
-        r'```python\n'
-        r'(.*?)'
-        r'```',
+
+    # Pattern 1: ### filename\n```python ... ```
+    pattern1 = re.compile(
+        r'^###\s+(\S+)\s*\n```python\n(.*?)```',
         re.MULTILINE | re.DOTALL
     )
-    for match in pattern.finditer(text):
+    for match in pattern1.finditer(text):
         fname = match.group(1)
         code = match.group(2).strip()
         if fname and code:
             files[fname] = code
+
+    # Pattern 2: ## `path/to/filename` ... ```python ... ```
+    pattern2 = re.compile(
+        r'^##\s+`[^`]+/(\S+)`\s*\n.*?```python\n(.*?)```',
+        re.MULTILINE | re.DOTALL
+    )
+    for match in pattern2.finditer(text):
+        fname = match.group(1)
+        code = match.group(2).strip()
+        if fname and code and fname not in files:
+            files[fname] = code
+
+    # Pattern 3: any ```python ... ``` block preceded by a filename somewhere nearby
+    if not files:
+        blocks = re.split(r'```(?:python)?\n', text)
+        for i in range(1, len(blocks), 2):
+            code = blocks[i].strip()
+            if code.endswith("```"):
+                code = code[:-3].strip()
+            if not code:
+                continue
+            before = blocks[i - 1]
+            candidates = re.findall(r'(\w+\.py)', before)
+            if candidates:
+                files[candidates[-1]] = code
+
     return files
 
 
@@ -149,16 +235,8 @@ def run_pytest(test_path: Path) -> tuple[bool, str]:
 
 
 def auto_backend(target: Path, prompt: str) -> bool:
-    test_file = target / "Tests.py"
-    if test_file.exists():
-        passed, output = run_pytest(test_file)
-        if passed:
-            print(f"[Runner] Tests already passing. Skipping opencode call.")
-            return True
-        print(f"[Runner] Existing tests failing. Will re-implement.")
-
-    print(f"[Runner] Calling opencode (Backend Agent)...")
-    response = call_opencode(prompt)
+    print(f"[Runner] Calling LLM (Backend Agent)...")
+    response = call_llm(prompt)
     files = extract_code_blocks(response)
     if not files:
         print(f"[Runner] No code blocks found in LLM response.", file=sys.stderr)
@@ -191,7 +269,7 @@ def auto_backend(target: Path, prompt: str) -> bool:
                                  f"Fix the {target.name} feature. Tests are failing. Analyze and fix.",
                                  output)
         print(f"[Runner] QA attempt {attempt}/{MAX_QA_LOOPS}...")
-        qa_response = call_opencode(qa_prompt)
+        qa_response = call_llm(qa_prompt)
         fix_files = extract_code_blocks(qa_response)
         if not fix_files:
             print(f"[Runner] No code blocks in QA response.", file=sys.stderr)
