@@ -32,6 +32,7 @@ class Rachet:
         self._avg_price: float = 0.0
         self._last_buy_price: float = 0.0
         self._last_buy_qty: int = self._x
+        self._last_sell_date: str | None = None
         self._win_qty: int = self._x
         self._loss_qty: int = self._x
         holdings_file = self._holdings_path()
@@ -90,10 +91,13 @@ class Rachet:
         if close_event is None:
             return None
         candle_time = close_event["close_time"]
+        trade_date = candle_time[:10]
 
         self._read_holdings(self._holdings_path())
 
         if not self._holdings:
+            if trade_date == self._last_sell_date:
+                return None
             qty = self._last_buy_qty
             self._x = qty
             mult = 1
@@ -109,6 +113,7 @@ class Rachet:
 
         sell_target = self._avg_price * (1.0 + self._perc)
         if cmp > sell_target:
+            self._last_sell_date = trade_date
             return {
                 "action": "SELL",
                 "tradingsymbol": self._tradingsymbol,
@@ -118,6 +123,9 @@ class Rachet:
                 "time": candle_time,
                 "multiplier": 0,
             }
+
+        if trade_date == self._last_sell_date:
+            return None
 
         last_price = self._holdings[-1].avg_price
         buy_lower = last_price * (1.0 - self._perc)

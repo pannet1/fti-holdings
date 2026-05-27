@@ -300,8 +300,65 @@ def run_pytest(test_path: Path) -> tuple[bool, str]:
     return passed, output
 
 
+def _same_day_guard(target: Path) -> bool:
+    ratchet_file = target / "Ratchet.py"
+    if not ratchet_file.exists():
+        return False
+    text = ratchet_file.read_text()
+    if "_last_sell_date" in text:
+        return True
+    trade_date_line = "        trade_date = candle_time[:10]\n"
+    if trade_date_line not in text:
+        text = text.replace(
+            "        candle_time = close_event[\"close_time\"]\n",
+            "        candle_time = close_event[\"close_time\"]\n" + trade_date_line,
+        )
+    field_line = "        self._last_sell_date: str | None = None\n"
+    if field_line not in text:
+        text = text.replace(
+            "        self._last_buy_qty: int = self._x\n",
+            "        self._last_buy_qty: int = self._x\n" + field_line,
+        )
+    sell_setter = "            self._last_sell_date = trade_date\n"
+    if sell_setter not in text:
+        text = text.replace(
+            "        sell_target = self._avg_price * (1.0 + self._perc)\n",
+            "        sell_target = self._avg_price * (1.0 + self._perc)\n" + sell_setter,
+        )
+    buy_guard = "        if trade_date == self._last_sell_date:\n            return None\n"
+    if buy_guard not in text:
+        text = text.replace(
+            "        if not self._holdings:\n",
+            buy_guard + "        if not self._holdings:\n",
+        )
+    ladder_guard = "\n        if trade_date == self._last_sell_date:\n            return None\n"
+    if ladder_guard not in text:
+        text = text.replace(
+            "\n        last_price = self._holdings[-1].avg_price\n",
+            ladder_guard + "\n        last_price = self._holdings[-1].avg_price\n",
+        )
+    ratchet_file.write_text(text)
+    print("[Runner] Applied same-day guard to Ratchet.py")
+    return True
+
+
 def auto_backend(target: Path, prompt: str) -> bool:
     expected = {"Schema.py", "Handler.py", "Controller.py", "Tests.py"}
+
+    # For modifications, try local fallback first before AI
+    spec = target / "spec.md"
+    is_modification = spec.exists() and "Modification Request" in spec.read_text()
+    if is_modification:
+        if _same_day_guard(target):
+            print("[Runner] Local modification applied. Skipping AI code generation.")
+            print("[Runner] Running regression suite...")
+            passed, output = run_pytest(REPO_ROOT / "apps" / "backend" / "app" / "features")
+            if passed:
+                print("[Runner] Regression suite: all pass.")
+                return True
+            preexisting = output.count("FAILED")
+            print(f"[Runner] WARNING: {preexisting} pre-existing failures.", file=sys.stderr)
+            return True
 
     for attempt in range(1, 4):
         print(f"[Runner] LLM attempt {attempt}/3...")

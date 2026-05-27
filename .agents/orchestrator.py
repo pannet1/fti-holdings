@@ -472,68 +472,13 @@ def _rewrite_spec_with_ai(feature_dir: Path, change_prompt: str, section: str) -
     spec_path = feature_dir / "spec.md"
     existing = spec_path.read_text() if spec_path.exists() else ""
 
-    root_spec = REPO_ROOT / "SPEC.md"
-    arch_blueprint = root_spec.read_text() if root_spec.exists() else ""
-
-    system_prompt = (
-        "You are a spec writer maintaining a feature specification. "
-        "You will receive the current spec.md and a change request. "
-        "Rewrite the ENTIRE spec.md cleanly, integrating the changes into the main body. "
-        "Remove contradictions and outdated constraints. "
-        "Output ONLY the rewritten markdown spec — no preamble, no explanation.\n\n"
-        "Format:\n"
-        "  # <Action> — <Domain> Feature\n"
-        "  ## Overview\n"
-        "  ...\n"
-        "  ## Input / Output\n"
-        "  | Direction | Format | Description |\n"
-        "  ...\n"
-        "  ## Business Logic Constraints\n"
-        "  ...\n"
-        "  ## Error Cases\n"
-        "  ...\n"
-        "  ## Dependencies\n"
-        "  ...\n"
-        "  ## Code Standards\n"
-        "  All code must use type annotations per PEP 484.\n"
-    )
-    if arch_blueprint:
-        system_prompt = "Architecture Blueprint:\n" + arch_blueprint + "\n\n" + system_prompt
-
-    project_id = str(uuid.uuid4())
-    api_key = _zen_api_key()
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-        "x-opencode-project": project_id,
-        "x-opencode-session": _zen_session_id(),
-        "x-opencode-request": str(uuid.uuid4()),
-        "x-opencode-client": "python-script",
-        "User-Agent": "opencode/1.15.4",
-    }
-    payload = {
-        "model": _zen_model(),
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"## Current spec.md\n\n{existing}\n\n## Change Request ({section})\n\n{change_prompt}"},
-        ],
-        "max_tokens": 2048,
-        "temperature": 0.3,
-    }
-
-    rewritten = _zen_chat(headers, payload)
-    if rewritten:
-        spec_path.write_text(rewritten)
-        print(f"[Orchestrator] spec.md rewritten cleanly by AI ({section})")
-        return True
-
     amendment = f"\n## {section}\n\n{change_prompt}\n"
     if existing:
         spec_path.write_text(existing + amendment)
     else:
         spec_path.write_text(amendment)
-    print("[Orchestrator] Zen API unavailable — appended amendment to spec.md", file=sys.stderr)
-    return False
+    print(f"[Orchestrator] spec.md amended ({section})")
+    return True
 
 
 def run_runner(persona_key: str, target: Path, task: str, error_path: Optional[Path] = None) -> bool:

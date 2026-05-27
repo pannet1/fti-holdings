@@ -126,3 +126,10 @@ downtrend_thresh: -0.05   # -5%
 uptrend_thresh: 0.05      # +5%
 ratchet_factor: 1.07      # 7% increase
 sell_profit_thresh:
+## Modification Request
+
+we should not buy on the same day we sold
+
+## Modification Request
+
+we should not buy on the same day we sold
