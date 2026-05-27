@@ -26,7 +26,6 @@ class Rachet:
             start=O_SETG.get("start_time", "09:00"),
             stop=O_SETG.get("stop_time", "15:30"),
         )
-        self._last_candle_idx: int = -2
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
         self._avg_price: float = 0.0
@@ -71,13 +70,13 @@ class Rachet:
 
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
         cmp = quotes.get(self._tradingsymbol)
-        if cmp is None:
+        if not cmp:
             return None
 
-        curr_idx = self._candle.current_index
-        if curr_idx <= self._last_candle_idx:
+        close_event = self._candle.check_close()
+        if close_event is None:
             return None
-        self._last_candle_idx = curr_idx
+        candle_time = close_event["close_time"]
 
         self._read_holdings(Path(self._data_dir) / "holdings.csv")
 

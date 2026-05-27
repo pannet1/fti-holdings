@@ -215,6 +215,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
+        inst._candle.force_index(0)
         signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal1 is not None
         signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
@@ -233,6 +234,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
+        inst._candle.force_index(0)
         signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal1 is not None
         holdings_csv = tmp_path / "holdings.csv"
@@ -240,7 +242,7 @@ class TestRachetStrategy:
             "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
             "2026-05-22 09:30,BSE,ITBEES,BUY,250.00,33,ratchet\n"
         )
-        inst._last_candle_idx = -1
+        inst._candle.force_index(1)
         signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
         assert signal2 is None
 

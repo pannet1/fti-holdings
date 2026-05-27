@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import json
+import os
 import random
 import string
 import subprocess
@@ -56,9 +57,11 @@ def _zen_session_id() -> str:
 ZEN_FALLBACKS = [
     "deepseek-v4-flash-free",
     "nemotron-3-super-free",
-    "minimax-m2.5-free",
-    "qwen3.6-plus-free",
 ]
+
+
+def _zen_api_key() -> str:
+    return os.environ.get("OPENCODE_ZEN_KEY", "public")
 
 
 def _zen_model() -> str:
@@ -102,9 +105,10 @@ def generate_spec_with_ai(domain: str, action: str, prompt: str) -> str | None:
         "Output ONLY the markdown spec — no preamble, no explanation."
     )
     project_id = str(uuid.uuid4())
+    api_key = _zen_api_key()
     headers = {
         "Content-Type": "application/json",
-        "Authorization": "Bearer public",
+        "Authorization": f"Bearer {api_key}",
         "x-opencode-project": project_id,
         "x-opencode-session": _zen_session_id(),
         "x-opencode-request": str(uuid.uuid4()),
@@ -142,12 +146,17 @@ def _zen_chat(headers: dict, payload: dict) -> str | None:
                 print(f"[Orchestrator] Model '{model}' unavailable (free tier ended). Trying next...", file=sys.stderr)
                 continue
             print(f"[Orchestrator] Zen API error ({model}): {e}", file=sys.stderr)
-            return None
+            continue
         except Exception as e:
             print(f"[Orchestrator] Zen API error ({model}): {e}", file=sys.stderr)
-            return None
+            continue
 
-        content = body["choices"][0]["message"]["content"].strip()
+        try:
+            msg = body["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"[Orchestrator] Model '{model}' returned unexpected response: {e}", file=sys.stderr)
+            continue
+        content = (msg.get("content") or msg.get("reasoning_content") or "").strip()
         if content.startswith("```"):
             content = content.split("\n", 1)[1] if "\n" in content else content[3:]
             if content.endswith("```"):
@@ -492,9 +501,10 @@ def _rewrite_spec_with_ai(feature_dir: Path, change_prompt: str, section: str) -
         system_prompt = "Architecture Blueprint:\n" + arch_blueprint + "\n\n" + system_prompt
 
     project_id = str(uuid.uuid4())
+    api_key = _zen_api_key()
     headers = {
         "Content-Type": "application/json",
-        "Authorization": "Bearer public",
+        "Authorization": f"Bearer {api_key}",
         "x-opencode-project": project_id,
         "x-opencode-session": _zen_session_id(),
         "x-opencode-request": str(uuid.uuid4()),

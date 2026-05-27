@@ -21,6 +21,7 @@ Usage:
 
 import argparse
 import json
+import os
 import random
 import re
 import string
@@ -41,9 +42,11 @@ ZEN_URL = "https://opencode.ai/zen/v1/chat/completions"
 ZEN_FALLBACKS = [
     "deepseek-v4-flash-free",
     "nemotron-3-super-free",
-    "minimax-m2.5-free",
-    "qwen3.6-plus-free",
 ]
+
+
+def _zen_api_key() -> str:
+    return os.environ.get("OPENCODE_ZEN_KEY", "public")
 
 
 def _zen_session_id() -> str:
@@ -69,9 +72,10 @@ def _zen_chat(prompt: str) -> str | None:
     fallbacks.insert(0, selected)
 
     project_id = str(uuid.uuid4())
+    api_key = _zen_api_key()
     headers = {
         "Content-Type": "application/json",
-        "Authorization": "Bearer public",
+        "Authorization": f"Bearer {api_key}",
         "x-opencode-project": project_id,
         "x-opencode-session": _zen_session_id(),
         "x-opencode-request": str(uuid.uuid4()),
@@ -97,12 +101,17 @@ def _zen_chat(prompt: str) -> str | None:
                 print(f"[Runner] Model '{model}' unavailable (free tier ended). Trying next...", file=sys.stderr)
                 continue
             print(f"[Runner] Zen API error ({model}): {e}", file=sys.stderr)
-            return None
+            continue
         except Exception as e:
             print(f"[Runner] Zen API error ({model}): {e}", file=sys.stderr)
-            return None
+            continue
 
-        content = body["choices"][0]["message"]["content"].strip()
+        try:
+            msg = body["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"[Runner] Model '{model}' returned unexpected response: {e}", file=sys.stderr)
+            continue
+        content = (msg.get("content") or msg.get("reasoning_content") or "").strip()
         if not content and model != fallbacks[-1]:
             print(f"[Runner] Model '{model}' returned empty response. Trying next...", file=sys.stderr)
             continue
@@ -248,7 +257,8 @@ def validate_code_standards(written: list[Path]) -> list[str]:
     for p in written:
         if not p.exists() or p.suffix != ".py":
             continue
-        lines = p.read_text().splitlines()
+        text = p.read_text()
+        lines = text.splitlines()
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
             if stripped.startswith("#") and "noqa" not in stripped:
@@ -256,14 +266,11 @@ def validate_code_standards(written: list[Path]) -> list[str]:
             if "print(" in stripped and "logger" not in stripped:
                 violations.append(f"{p.name}:{i} print() found")
         # Check function defs for missing return types
-        for m in re.finditer(r'^\s*def (\w+)\(.*\)(?:\s*->\s*\w+)?\s*:', lines, re.MULTILINE):
-            body = "\n".join(lines)
-        for m in re.finditer(r'^(?:    )*def (\w+)\(', body, re.MULTILINE):
-            fn_line = m.group(0)
-            rest = body[m.end():].lstrip()
-            end_idx = rest.find("\n")
-            sig_line = fn_line + rest[:end_idx] if end_idx > 0 else fn_line + rest
-            if "->" not in sig_line and not sig_line.startswith("def test_"):
+        for m in re.finditer(r'^(?:    )*def (\w+)\(', text, re.MULTILINE):
+            start = m.start()
+            end_of_line = text.find('\n', start)
+            sig_line = text[start:end_of_line] if end_of_line > start else text[start:]
+            if "->" not in sig_line and not sig_line.strip().startswith("def test_"):
                 violations.append(f"{p.name}: missing return type on {m.group(1)}")
     return violations
 

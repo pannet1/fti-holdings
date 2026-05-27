@@ -14,11 +14,9 @@ class ManageCandleController:
         start = str(params.get("start", "09:00"))
         stop = str(params.get("stop", "15:30"))
         handler = ManageCandleHandler(minute=minute, start=start, stop=stop)
-        idx = handler.current_index
-        logger.info("Candle index computed: %s", idx)
+        event = handler.check_close()
+        logger.info("Candle close event: %s", event)
         return {
             "status": "ok",
-            "data": {
-                "current_index": idx,
-            },
+            "data": event or {"index": handler.current_index},
         }
