@@ -7,7 +7,7 @@ from .Schema import HoldingsRow
 
 logger = logging.getLogger(__name__)
 
-CSV_FIELDS = ["datetime", "exchange", "tradingsymbol", "side", "avg_price", "quantity", "strategy"]
+CSV_FIELDS = ["datetime", "exchange", "tradingsymbol", "side", "avg_price", "quantity", "strategy", "multiplier"]
 
 
 class TrackHoldingsHandler:
@@ -45,3 +45,22 @@ class TrackHoldingsHandler:
             writer.writeheader()
             for row in rows:
                 writer.writerow(row.model_dump())
+
+    def remove_holding(self, tradingsymbol: str, quantity: int) -> None:
+        if not self._filepath.exists():
+            return
+        rows = self.read_all()
+        remaining = quantity
+        updated: List[HoldingsRow] = []
+        for row in rows:
+            if row.tradingsymbol == tradingsymbol and remaining > 0:
+                if row.quantity <= remaining:
+                    remaining -= row.quantity
+                    continue
+                else:
+                    row.quantity -= remaining
+                    remaining = 0
+                    updated.append(row)
+            else:
+                updated.append(row)
+        self.write_all(updated)

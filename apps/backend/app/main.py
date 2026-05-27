@@ -134,6 +134,10 @@ def main() -> None:
         runner = RunRatchetStrategyHandler()
         tracker = TrackRunStateHandler(data_dir=str(DATA_DIR))
         is_backtest = settings["global"].get("backtest", 0)
+        is_paper = settings["global"].get("paper", 0)
+        if is_backtest and not is_paper:
+            logger.error("backtest=1 requires paper=1 to prevent polluting real data/.")
+            sys.exit(1)
         if is_backtest:
             class MockOrderHandler:
                 def execute(self, **kwargs: Any) -> dict:
@@ -142,8 +146,8 @@ def main() -> None:
             order_mgr = MockOrderHandler()
         else:
             order_mgr = ManageOrderHandler()
-        holdings_tracker = TrackHoldingsHandler(data_dir=str(DATA_DIR))
-        trades_journal = JournalTradesHandler(data_dir=str(DATA_DIR))
+        holdings_tracker = TrackHoldingsHandler(data_dir=str(DATA_DIR), paper=bool(is_paper))
+        trades_journal = JournalTradesHandler(data_dir=str(DATA_DIR), paper=bool(is_paper))
 
         run_file = DATA_DIR / "run.txt"
         if run_file.exists():

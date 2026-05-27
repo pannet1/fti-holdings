@@ -9,6 +9,7 @@ class GlobalSettings(BaseModel):
     stop: str
     candle: int
     backtest: int = 0
+    paper: int = 0
 
 
 class StrategySettings(BaseModel):

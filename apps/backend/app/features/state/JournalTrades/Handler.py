@@ -11,8 +11,12 @@ CSV_FIELDS = ["datetime", "exchange", "tradingsymbol", "side", "avg_price", "qua
 
 class JournalTradesHandler:
 
-    def __init__(self, data_dir: str = "data") -> None:
-        self._filepath = Path(data_dir) / "trades.csv"
+    def __init__(self, data_dir: str = "data", paper: bool = False) -> None:
+        base = Path(data_dir)
+        if paper:
+            self._filepath = base / "paper" / "trades.csv"
+        else:
+            self._filepath = base / "trades.csv"
 
     def journal_trade(self, row: HoldingsRow) -> None:
         write_header = not self._filepath.exists()

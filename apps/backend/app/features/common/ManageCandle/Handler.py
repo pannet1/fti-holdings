@@ -61,9 +61,14 @@ class ManageCandleHandler:
         if curr <= self._last_announced_idx:
             return None
         self._last_announced_idx = curr
-        close_time = self._close_times[curr]
+        if curr < len(self._close_times):
+            close_time = self._close_times[curr]
+            is_truncated = self._is_truncated(curr)
+        else:
+            close_time = self._open.add(minutes=self._minute * (curr + 1))
+            is_truncated = False
         return {
             "index": curr,
             "close_time": close_time.format("YYYY-MM-DD HH:mm:ss"),
-            "is_truncated": self._is_truncated(curr),
+            "is_truncated": is_truncated,
         }

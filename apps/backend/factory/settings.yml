@@ -4,3 +4,4 @@ start: "09:15"
 stop: "23:55"
 candle: 240
 backtest: 0
+paper: 0
