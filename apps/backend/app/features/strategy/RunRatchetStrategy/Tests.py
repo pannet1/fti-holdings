@@ -55,6 +55,7 @@ class TestRunRatchetStrategyHandler:
             perc=0.05,
             candle=_candle_from_settings(),
         )
+        strategy._candle.force_index(0)
         signal = handler.execute_tick(strategy=strategy, quotes={"ITBEES": 245.50})
         assert signal is not None
         assert signal["action"] == "BUY"
@@ -154,6 +155,7 @@ class TestRachetStrategy:
             candle=_candle_from_settings(),
         )
         quotes = {"ITBEES": 245.50}
+        inst._candle.force_index(0)
         signal = inst.run(trades=None, quotes=quotes, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
@@ -175,6 +177,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
+        inst._candle.force_index(0)
         signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
@@ -198,6 +201,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
+        inst._candle.force_index(0)
         signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
@@ -285,6 +289,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
+        inst._candle.force_index(0)
         target = 245.00 * 1.05
         signal = inst.run(trades=None, quotes={"ITBEES": target + 0.01}, positions=None)
         assert signal is not None

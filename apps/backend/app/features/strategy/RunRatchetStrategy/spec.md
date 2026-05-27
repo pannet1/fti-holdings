@@ -9,6 +9,8 @@ The Ratchet strategy manages equity positions across **two independent books**:
 
 The strategy name comes from the **ratchet mechanism**: the base unit `x` only increases (ratchets up) when swing trades close at profit, never decreases.
 
+**Same‑day round‑trip constraint**: a sell and a buy must never occur on the same trading day. The engine processes one action per day; if both triggers fire, the sell has priority (profit exit) and the buy is suppressed until the next day.
+
 ## Fibonacci Position Sizing
 
 ```
@@ -34,6 +36,7 @@ Position sizes are multiples of the base unit `x`:
 | First dip (qty=1) | open < MA12 AND close > MA12 AND price < -5% AND above MA380 | 2 shares |
 | Fibo buy (1 < qty < 13) | open < MA12 AND close > MA12 AND price < -martingale% AND above MA380 | Next fibo |
 | Below MA380 recovery | open < MA12 AND close > MA12 AND price < -martingale% AND below MA380 | Next fibo |
+| *Suppressed if a sell has already executed today* | | |
 
 ### SELL Conditions
 | Scenario | Trigger | Quantity |
@@ -41,6 +44,8 @@ Position sizes are multiples of the base unit `x`:
 | Profit above MA380 | open > MA12 AND close < MA12 AND price > fibo% AND below MA380 | Reverse fibo |
 | Cross below MA380 | open < MA380 AND close > MA380 AND price > 1% | Reverse fibo |
 | Extended rally | open > MA12 AND close < MA12 AND price > martingale% AND above MA380 | Full quantity |
+
+**Priority**: if both a buy and a sell condition are met in the same tick, the sell executes and the buy is skipped. The engine logs the suppressed buy.
 
 ## Two-Book State Machine
 
@@ -64,6 +69,8 @@ Operations:
 
 ### State Transitions
 
+**Same‑day rule applies**: after a sell, no further buys are allowed for the rest of the trading day. After a buy, a sell is still allowed only if the price moves into profit *within the same day* (though a buy followed by a sell in the same day is also a round‑trip; the rule forbids both directions in the same day). Thus if a buy occurs, any subsequent sell trigger is suppressed until the next day.
+
 ```
                     DOWNTREND (<= -5%)
                     ┌─────────────────────┐
@@ -83,7 +90,7 @@ Operations:
                     │
               ┌─────▼─────┐
               │ Profit?   │─────YES────► SWING SELL (ratchet x up)
-              │ (>= 5%)   │
+              │ (>= 5%)   │            (suppresses any buy today)
               └─────┬─────┘
                     │ NO
                     ▼
@@ -101,6 +108,7 @@ Operations:
 4. **Fibo sequence is bounded** — max multiplier is 55 (last in sequence)
 5. **Price change threshold is symmetric** — ±5% for buy/sell triggers
 6. **MA380 is the trend filter** — above = bullish bias, below = bearish bias
+7. **No same‑day round‑trip** — at most one direction (buy OR sell) per trading day. If both fire, sell wins.
 
 ## Configuration Parameters
 
@@ -117,57 +125,4 @@ fibo_seq: [1, 2, 3, 5, 8, 13, 21, 34, 55]
 downtrend_thresh: -0.05   # -5%
 uptrend_thresh: 0.05      # +5%
 ratchet_factor: 1.07      # 7% increase
-sell_profit_thresh: 1.05  # 5% profit target
-```
-
-## Edge Cases
-
-| Scenario | Behavior |
-|----------|----------|
-| LTP = 0 | Skip tick, no action |
-| First run (no history) | Initialize books with defaults, use CMP as baseline |
-| Swing empty + uptrend | Buy base unit `x` into holdings |
-| Price within ±5% | HOLD — no action |
-| Market closed | Engine waits until start_time, stops at stop_time |
-
----
-
-## State File Schemas
-
-### data/holdings.csv
-
-Holdings book (Vault) — core long-term positions.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| date | str | Last trade date (YYYY-MM-DD) |
-| price | float | Last trade price |
-| qty | int | Total quantity held |
-| wap | float | Weighted average price |
-| count | int | Total shares accumulated |
-
-```csv
-date,price,qty,wap,count
-2024-01-15,2450.50,99,2430.25,99
-```
-
-### data/swing.csv
-
-Swing book (Trade) — tactical positions.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| date | str | Last trade date (YYYY-MM-DD) |
-| price | float | Last trade price |
-| qty | int | Current swing quantity |
-| wap | float | Weighted average price of swing |
-| count | int | Current fibo step index |
-
-```csv
-date,price,qty,wap,count
-2024-01-15,2450.50,66,2440.00,2
-
-## Code Standards
-
-All code must use type annotations per PEP 484 (function signatures + module-level variables).
-```
+sell_profit_thresh:

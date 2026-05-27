@@ -49,6 +49,7 @@ def build_strategies(tracker: Any, global_settings: dict) -> List[Rachet]:
         if candidates:
             cfg = dict(candidates[0])
         cfg.setdefault("candle", global_settings["candle"])
+        cfg.setdefault("paper", global_settings.get("paper", 0))
         if "tradingsymbol" not in cfg and "symbol" in cfg:
             cfg["tradingsymbol"] = cfg["symbol"]
         try:

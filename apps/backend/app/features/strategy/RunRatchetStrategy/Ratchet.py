@@ -14,6 +14,7 @@ class Rachet:
         self.strategy = O_SETG["strategy"]
         self.stop_time = O_SETG["stop_time"]
         self._data_dir = data_dir
+        self._paper = bool(O_SETG.get("paper", 0))
         self._removable = False
         self._tradingsymbol = O_SETG.get("tradingsymbol", "")
         self._exchange = O_SETG.get("exchange", "NSE")
@@ -33,11 +34,11 @@ class Rachet:
         self._last_buy_qty: int = self._x
         self._win_qty: int = self._x
         self._loss_qty: int = self._x
-        holdings_file = Path(data_dir) / "holdings.csv"
+        holdings_file = self._holdings_path()
         if holdings_file.exists():
             self._read_holdings(holdings_file)
         else:
-            trades_file = Path(data_dir) / "trades.csv"
+            trades_file = self._trades_path()
             if trades_file.exists():
                 with open(trades_file) as f:
                     reader = csv.DictReader(f)
@@ -51,6 +52,18 @@ class Rachet:
                 last_idx = self._multiplier.index(closest)
                 self._win_qty = self._x * self._multiplier[max(0, last_idx - 1)]
                 self._loss_qty = self._x * self._multiplier[min(len(self._multiplier) - 1, last_idx + 1)]
+
+    def _holdings_path(self) -> Path:
+        base = Path(self._data_dir)
+        if self._paper:
+            return base / "paper" / "holdings.csv"
+        return base / "holdings.csv"
+
+    def _trades_path(self) -> Path:
+        base = Path(self._data_dir)
+        if self._paper:
+            return base / "paper" / "trades.csv"
+        return base / "trades.csv"
 
     def _read_holdings(self, holdings_file: Path) -> None:
         self._holdings = []
@@ -78,7 +91,7 @@ class Rachet:
             return None
         candle_time = close_event["close_time"]
 
-        self._read_holdings(Path(self._data_dir) / "holdings.csv")
+        self._read_holdings(self._holdings_path())
 
         if not self._holdings:
             qty = self._last_buy_qty
