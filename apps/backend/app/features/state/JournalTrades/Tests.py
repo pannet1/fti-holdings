@@ -3,6 +3,7 @@ from pathlib import Path
 
 from .Handler import JournalTradesHandler
 from .Schema import HoldingsRow
+from .Controller import JournalTradesController
 
 
 class TestJournalTradesHandler:
@@ -51,3 +52,54 @@ class TestJournalTradesHandler:
         assert len(lines) == 3
         assert lines[1].endswith("ITBEES,SELL,250.0,33,ratchet,1")
         assert lines[2].endswith("ITBEES,SELL,185.0,33,ratchet,1")
+
+
+class TestJournalTradesController:
+
+    def test_handle_paper_false(self, tmp_path):
+        controller = JournalTradesController(base_data_dir=str(tmp_path))
+        row = HoldingsRow(
+            datetime="2024-01-15 10:30:00",
+            exchange="BSE",
+            tradingsymbol="ITBEES",
+            side="SELL",
+            avg_price=250.00,
+            quantity=33,
+            strategy="ratchet",
+        )
+        controller.handle(row, paper=False)
+        csv_path = tmp_path / "trades.csv"
+        assert csv_path.exists()
+        assert csv_path.read_text().strip().endswith("ITBEES,SELL,250.0,33,ratchet,1")
+
+    def test_handle_paper_true_creates_in_paper_subdir(self, tmp_path):
+        controller = JournalTradesController(base_data_dir=str(tmp_path))
+        row = HoldingsRow(
+            datetime="2024-01-15 10:30:00",
+            exchange="BSE",
+            tradingsymbol="ITBEES",
+            side="SELL",
+            avg_price=250.00,
+            quantity=33,
+            strategy="ratchet",
+        )
+        controller.handle(row, paper=True)
+        csv_path = tmp_path / "paper" / "trades.csv"
+        assert csv_path.exists()
+        assert csv_path.read_text().strip().endswith("ITBEES,SELL,250.0,33,ratchet,1")
+
+    def test_handle_paper_true_creates_directory_if_not_exists(self, tmp_path):
+        controller = JournalTradesController(base_data_dir=str(tmp_path))
+        row = HoldingsRow(
+            datetime="2024-01-15 10:30:00",
+            exchange="BSE",
+            tradingsymbol="ITBEES",
+            side="SELL",
+            avg_price=250.00,
+            quantity=33,
+            strategy="ratchet",
+        )
+        controller.handle(row, paper=True)
+        paper_dir = tmp_path / "paper"
+        assert paper_dir.exists()
+        assert paper_dir.is_dir()
