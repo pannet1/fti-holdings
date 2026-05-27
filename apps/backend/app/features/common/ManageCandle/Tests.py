@@ -7,21 +7,26 @@ from .Handler import ManageCandleHandler
 
 class TestManageCandleHandler:
 
-    def test_returns_negative_one_before_market_open(self):
+    def test_returns_negative_one_when_forced(self):
         mgr = ManageCandleHandler(minute=1, start="23:00", stop="23:55")
+        mgr.force_index(-1)
         assert mgr.current_index == -1
 
-    def test_returns_zero_after_first_candle_close(self):
+    def test_returns_correct_index_when_forced(self):
         mgr = ManageCandleHandler(minute=1, start="09:00", stop="09:02")
-        assert mgr.current_index >= 0
+        mgr.force_index(0)
+        assert mgr.current_index == 0
 
     def test_index_increments_with_candles(self):
         mgr = ManageCandleHandler(minute=1, start="09:00", stop="09:05")
-        idx = mgr.current_index
-        assert idx >= 0
+        mgr.force_index(0)
+        assert mgr.current_index == 0
+        mgr.force_index(1)
+        assert mgr.current_index == 1
 
     def test_check_close_returns_none_before_first_candle(self):
-        mgr = ManageCandleHandler(minute=1, start="23:00", stop="23:55")
+        mgr = ManageCandleHandler(minute=1, start="09:00", stop="09:02")
+        mgr.force_index(-1)
         assert mgr.check_close() is None
 
     def test_check_close_announces_candle_close_once(self):

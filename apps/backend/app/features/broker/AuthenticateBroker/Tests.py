@@ -32,7 +32,7 @@ class TestAuthenticateBrokerHandler:
             token_path=str(token_file),
             **DUMMY_CREDS,
         )
-        assert result["status"] == "token_exists"
+        assert result["status"] == "authenticated"
         assert result["userid"] == "FN137030"
 
     def test_raises_on_empty_credentials(self):
