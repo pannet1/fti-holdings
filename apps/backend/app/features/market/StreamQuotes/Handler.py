@@ -4,7 +4,7 @@ from datetime import datetime
 from threading import Lock
 from typing import Any, Dict, List
 
-from .wsocket import Wsocket
+from broker_ai.finvasia.wsocket import Wsocket
 
 logger = logging.getLogger(__name__)
 
