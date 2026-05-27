@@ -149,10 +149,6 @@ def main() -> None:
         logger.info(f"Active strategies: {len(strategies)}")
 
         if strategies:
-            tokens = [f"{s._exchange}|{s._token}" for s in strategies]
-            symbol_map = {
-                s._tradingsymbol: f"{s._exchange}|{s._token}" for s in strategies
-            }
             if is_backtest:
                 strat = strategies[0]
                 token = strat._token
@@ -210,6 +206,14 @@ def main() -> None:
                     logger.error(f"Could not resolve token for {strat._tradingsymbol}")
                     stream = None
             else:
+                for strat in strategies:
+                    if not strat._token:
+                        sym = FinvasiaSymbol(exchange=strat._exchange, symbol=strat._tradingsymbol)
+                        strat._token = sym.find("token")
+                tokens = [f"{s._exchange}|{s._token}" for s in strategies if s._token]
+                symbol_map = {
+                    s._tradingsymbol: f"{s._exchange}|{s._token}" for s in strategies if s._token
+                }
                 stream = StreamQuotesHandler(
                     broker_session=broker_session,
                     tokens=tokens,
