@@ -1,5 +1,6 @@
-#!/bin/env sh
+#!/usr/bin/env bash
 set -euo pipefail
+export PATH="$HOME/.cargo/bin:$PATH"
 find . -type d -name "__pycache__" -print0 | xargs -0 rm -rf
 sess="ratchet"
 
@@ -12,10 +13,10 @@ if tmux has-session -t "$sess" 2>/dev/null; then
 	fi
 else
 	echo "Setting up environment"
-	if ! command -v uv &>/dev/null; then
+	if ! hash uv 2>/dev/null; then
 		echo "Installing uv"
 		curl -LsSf https://astral.sh/uv/install.sh | sh
-		export PATH="$HOME/.cargo/bin:$PATH"
+		hash -r
 	fi
 	echo "Pulling latest code"
 	git reset --hard && git pull
