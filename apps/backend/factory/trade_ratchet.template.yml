@@ -1,0 +1,23 @@
+trade:
+  strategy: ratchet
+  base: BPCL
+  symbol: BPCL
+  exchange: NSE
+  quantity: 33
+  start_time: "09:30"
+  stop_time: "15:00"
+  multiplier:
+    - 1
+    - 2
+    - 3
+    - 5
+    - 8
+    - 13
+    - 21
+    - 33
+    - 55
+  perc: 0.05
+
+BPCL:
+  exchange: NSE
+  tradingsymbol: BPCL-EQ
