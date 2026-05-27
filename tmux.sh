@@ -12,6 +12,7 @@ if tmux has-session -t "$sess" 2>/dev/null; then
 else
 	echo "updating"
 	git reset --hard && git pull
+	uv sync --directory apps/backend
 	if [ -t 0 ]; then
 		echo "Creating and attaching to session $sess."
 		tmux new-session -s "$sess" -x 120 -y 48 "uv run --directory apps/backend python -m app.main && tmux kill-session -t $sess"
