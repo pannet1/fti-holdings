@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -6,6 +7,19 @@ logger = logging.getLogger(__name__)
 
 
 class AuthenticateBrokerHandler:
+
+    def _try_auth(self, fin: object, retries: int = 3, delay: int = 2) -> Optional[dict]:
+        for attempt in range(1, retries + 1):
+            try:
+                result = fin.authenticate()
+                if result:
+                    return result
+                logger.warning(f"Auth returned empty result (attempt {attempt}/{retries})")
+            except Exception as e:
+                logger.error(f"Auth attempt {attempt}/{retries} failed: {e}")
+            if attempt < retries:
+                time.sleep(delay)
+        return None
 
     def execute(
         self,
@@ -32,7 +46,6 @@ class AuthenticateBrokerHandler:
         if token_file.exists():
             content = token_file.read_text().strip()
             if content:
-                logger.info(f"Reusing existing token for {userid}")
                 from broker_ai.finvasia.finvasia import Finvasia
                 fin = Finvasia(
                     user_id=userid,
@@ -47,10 +60,12 @@ class AuthenticateBrokerHandler:
                     refresh_token=refresh_token,
                     app_key_hash=app_key_hash,
                 )
-                result = fin.authenticate()
-                if not result:
-                    raise RuntimeError(f"Token reuse auth failed for {userid}")
-                return {"status": "token_exists", "userid": userid, "session": fin}
+                result = self._try_auth(fin)
+                if result:
+                    logger.info(f"Token reuse successful for {userid}")
+                    return {"status": "token_exists", "userid": userid, "session": fin}
+                logger.warning(f"Token reuse failed, deleting stale token for {userid}")
+                token_file.unlink(missing_ok=True)
 
         from broker_ai.finvasia.finvasia import Finvasia
         fin = Finvasia(
@@ -67,9 +82,9 @@ class AuthenticateBrokerHandler:
             app_key_hash=app_key_hash,
         )
 
-        result = fin.authenticate()
+        result = self._try_auth(fin)
         if not result:
-            raise RuntimeError(f"Authentication failed for {userid}")
+            raise RuntimeError(f"Authentication failed for {userid} after retries")
 
         token_file.parent.mkdir(parents=True, exist_ok=True)
         with open(token_file, "w") as f:
