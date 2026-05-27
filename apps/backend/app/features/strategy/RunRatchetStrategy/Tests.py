@@ -314,3 +314,48 @@ class TestRachetStrategy:
         quotes = {"ITBEES": 0}
         signal = inst.run(trades=None, quotes=quotes, positions=None)
         assert signal is None
+
+    def test_suppresses_buy_on_same_day_as_sell_no_holdings(self):
+        inst = Rachet(
+            strategy="ratchet",
+            base="ITBEES",
+            symbol="ITBEES",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+            candle=_candle_from_settings(),
+        )
+        inst._candle.force_index(0)
+        signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        assert signal1 is not None
+        assert signal1["action"] == "BUY"
+        inst._last_sell_date = signal1["time"][:10]
+        inst._candle.force_index(1)
+        signal2 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        assert signal2 is None
+
+    def test_suppresses_ladder_buy_on_same_day_as_sell(self, tmp_path):
+        holdings_csv = tmp_path / "holdings.csv"
+        holdings_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 09:30,BSE,ITBEES,BUY,245.00,33,ratchet\n"
+        )
+        inst = Rachet(
+            data_dir=str(tmp_path),
+            strategy="ratchet",
+            tradingsymbol="ITBEES",
+            exchange="BSE",
+            quantity=33,
+            start_time="09:30",
+            stop_time="15:00",
+            multiplier=[1, 2, 3, 5, 8, 13, 21, 33, 55],
+            perc=0.05,
+            candle=_candle_from_settings(),
+        )
+        inst._last_sell_date = "2026-05-22"
+        signal = inst.run(trades=None, quotes={"ITBEES": 232.00}, positions=None)
+        assert signal is None
