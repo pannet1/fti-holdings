@@ -23,6 +23,6 @@ dev = [
 ]
 
 [tool.uv.sources]
-broker-ai = { git = "https://github.com/pannet1/broker-ai", rev = "2ccb22c4ae880bea1a4f2277f2ea64c35384032b" }
 shared = { workspace = true }
 toolkit = { git = "https://github.com/pannet1/toolkit" }
+broker-ai = { git = "https://github.com/pannet1/broker-ai", rev = "08772706a9c663b565d33e1dd5947e9f1b470026" }

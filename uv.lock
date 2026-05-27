@@ -39,7 +39,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "broker-ai", git = "https://github.com/pannet1/broker-ai?rev=2ccb22c4ae880bea1a4f2277f2ea64c35384032b" },
+    { name = "broker-ai", git = "https://github.com/pannet1/broker-ai?rev=08772706a9c663b565d33e1dd5947e9f1b470026" },
     { name = "pandas", specifier = ">=2" },
     { name = "pendulum", specifier = ">=3" },
     { name = "pydantic", specifier = ">=2.13.4" },
@@ -54,8 +54,8 @@ dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "broker-ai"
-version = "0.1.0"
-source = { git = "https://github.com/pannet1/broker-ai?rev=2ccb22c4ae880bea1a4f2277f2ea64c35384032b#2ccb22c4ae880bea1a4f2277f2ea64c35384032b" }
+version = "1.0.0"
+source = { git = "https://github.com/pannet1/broker-ai?rev=08772706a9c663b565d33e1dd5947e9f1b470026#08772706a9c663b565d33e1dd5947e9f1b470026" }
 dependencies = [
     { name = "delta-rest-client" },
     { name = "norenrestapioauth" },
