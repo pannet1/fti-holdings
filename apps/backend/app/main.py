@@ -224,12 +224,17 @@ def main() -> None:
             stream = None
 
         backtest_tick = 0
+        status_interval = 60
+        last_status = time.monotonic()
         while True:
             try:
-                if stream:
-                    quotes = stream.get_quotes([s._tradingsymbol for s in strategies])
-                else:
-                    quotes = {}
+                quotes = stream.get_quotes([s._tradingsymbol for s in strategies]) if stream else {}
+
+                now = time.monotonic()
+                if now - last_status >= status_interval:
+                    ltp_str = ", ".join(f"{s._tradingsymbol}: {quotes.get(s._tradingsymbol, '-')}" for s in strategies)
+                    logger.info(f"Status — strategies: {len(strategies)}, LTP: {ltp_str}")
+                    last_status = now
 
                 if is_backtest and stream:
                     candle_ratio = settings["global"]["candle"] // 5
@@ -240,10 +245,6 @@ def main() -> None:
                     if backtest_tick >= len(stream.candles):
                         logger.info(f"Backtest complete: {len(stream.candles)} candles processed")
                         break
-
-                logger.info(
-                    f"Tick: {len(quotes)} quotes, {len(strategies)} strategies active"
-                )
 
                 for strategy in strategies:
                     signal = runner.execute_tick(strategy=strategy, quotes=quotes)

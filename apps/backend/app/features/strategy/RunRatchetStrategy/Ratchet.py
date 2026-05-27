@@ -70,11 +70,8 @@ class Rachet:
             self._avg_price = total_value / self._total_qty if self._total_qty > 0 else 0.0
 
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
-        cmp = quotes.get(self._tradingsymbol, 0)
-        candle_time = quotes.get("_time", "")
-        logger.info(f"{self._tradingsymbol} LTP: {cmp} at {candle_time}")
-
-        if cmp <= 0:
+        cmp = quotes.get(self._tradingsymbol)
+        if cmp is None:
             return None
 
         curr_idx = self._candle.current_index
