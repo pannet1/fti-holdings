@@ -7,18 +7,22 @@ from .Schema import HoldingsRow
 
 logger = logging.getLogger(__name__)
 
-CSV_FIELDS = ["datetime", "exchange", "tradingsymbol", "side", "avg_price", "quantity", "strategy", "multiplier"]
+CSV_FIELDS = ["datetime", "exchange", "tradingsymbol", "side", "avg_price", "quantity", "strategy"]
 
 
 class TrackHoldingsHandler:
 
-    def __init__(self, data_dir: str = "data") -> None:
-        self._filepath = Path(data_dir) / "holdings.csv"
+    def __init__(self, data_dir: str = "data", paper: bool = False) -> None:
+        base = Path(data_dir)
+        if paper:
+            self._filepath = base / "paper" / "holdings.csv"
+        else:
+            self._filepath = base / "holdings.csv"
 
     def read_all(self) -> List[HoldingsRow]:
         if not self._filepath.exists():
             return []
-        with open(self._filepath) as f:
+        with open(self._filepath, newline="") as f:
             reader = csv.DictReader(f)
             return [HoldingsRow(**row) for row in reader]
 
@@ -34,25 +38,10 @@ class TrackHoldingsHandler:
                 writer.writeheader()
             writer.writerow(row.model_dump())
 
-    def remove_holding(self, tradingsymbol: str, quantity: int) -> None:
-        if not self._filepath.exists():
-            return
-        rows = self.read_all()
-        remaining = quantity
-        updated: List[HoldingsRow] = []
-        for row in rows:
-            if row.tradingsymbol == tradingsymbol and remaining > 0:
-                if row.quantity <= remaining:
-                    remaining -= row.quantity
-                    continue
-                else:
-                    row.quantity -= remaining
-                    remaining = 0
-                    updated.append(row)
-            else:
-                updated.append(row)
+    def write_all(self, rows: List[HoldingsRow]) -> None:
+        self._filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(self._filepath, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
             writer.writeheader()
-            for row in updated:
+            for row in rows:
                 writer.writerow(row.model_dump())

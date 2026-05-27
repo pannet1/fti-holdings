@@ -9,4 +9,3 @@ class HoldingsRow(BaseModel):
     avg_price: float
     quantity: int
     strategy: str
-    multiplier: int = 1

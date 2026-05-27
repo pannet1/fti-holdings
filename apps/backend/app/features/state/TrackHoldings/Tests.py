@@ -1,115 +1,106 @@
 import pytest
+import tempfile
 from pathlib import Path
-
-from .Handler import TrackHoldingsHandler
+from .Handler import TrackHoldingsHandler, CSV_FIELDS
 from .Schema import HoldingsRow
 
 
 class TestTrackHoldingsHandler:
 
-    def test_read_all_returns_empty_when_file_missing(self, tmp_path):
-        handler = TrackHoldingsHandler(data_dir=str(tmp_path))
-        result = handler.read_all()
-        assert result == []
+    @pytest.fixture
+    def temp_data_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield tmpdir
 
-    def test_read_all_returns_all_rows(self, tmp_path):
-        csv_path = tmp_path / "holdings.csv"
-        csv_path.write_text(
-            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
-            "2024-01-15 10:30:00,BSE,ITBEES,BUY,245.50,33,ratchet\n"
-            "2024-01-15 11:00:00,BSE,SYM_B,BUY,180.75,33,ratchet\n"
-        )
-        handler = TrackHoldingsHandler(data_dir=str(tmp_path))
-        result = handler.read_all()
-        assert len(result) == 2
-        assert result[0].tradingsymbol == "ITBEES"
-        assert result[1].tradingsymbol == "SYM_B"
+    def test_read_all_returns_empty_list_when_no_file(self, temp_data_dir):
+        handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
+        assert handler.read_all() == []
 
-    def test_read_by_symbol_filters_correctly(self, tmp_path):
-        csv_path = tmp_path / "holdings.csv"
-        csv_path.write_text(
-            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
-            "2024-01-15 10:30:00,BSE,ITBEES,BUY,245.50,33,ratchet\n"
-            "2024-01-15 10:31:00,BSE,ITBEES,BUY,246.00,33,ratchet\n"
-            "2024-01-15 11:00:00,BSE,SYM_B,BUY,180.75,33,ratchet\n"
-        )
-        handler = TrackHoldingsHandler(data_dir=str(tmp_path))
-        itbees = handler.read_by_symbol("ITBEES")
-        sym_b = handler.read_by_symbol("SYM_B")
-        assert len(itbees) == 2
-        assert len(sym_b) == 1
-        assert all(r.tradingsymbol == "ITBEES" for r in itbees)
-        assert all(r.tradingsymbol == "SYM_B" for r in sym_b)
-
-    def test_add_holding_appends_row(self, tmp_path):
-        handler = TrackHoldingsHandler(data_dir=str(tmp_path))
+    def test_add_holding_and_read_all(self, temp_data_dir):
+        handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
         row = HoldingsRow(
-            datetime="2024-01-15 10:30:00",
-            exchange="BSE",
-            tradingsymbol="ITBEES",
+            datetime="2023-01-01",
+            exchange="NSE",
+            tradingsymbol="ABC",
             side="BUY",
-            avg_price=245.50,
-            quantity=33,
-            strategy="ratchet",
+            avg_price=100.0,
+            quantity=10,
+            strategy="test",
         )
         handler.add_holding(row)
         rows = handler.read_all()
         assert len(rows) == 1
-        assert rows[0].tradingsymbol == "ITBEES"
-        assert rows[0].quantity == 33
+        assert rows[0] == row
 
-    def test_remove_holding_reduces_quantity(self, tmp_path):
-        handler = TrackHoldingsHandler(data_dir=str(tmp_path))
-        handler.add_holding(HoldingsRow(
-            datetime="2024-01-15 10:30:00",
-            exchange="BSE",
-            tradingsymbol="ITBEES",
+    def test_read_by_symbol(self, temp_data_dir):
+        handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
+        row1 = HoldingsRow(
+            datetime="2023-01-01",
+            exchange="NSE",
+            tradingsymbol="ABC",
             side="BUY",
-            avg_price=245.50,
-            quantity=33,
-            strategy="ratchet",
-        ))
-        handler.add_holding(HoldingsRow(
-            datetime="2024-01-15 10:31:00",
-            exchange="BSE",
-            tradingsymbol="ITBEES",
+            avg_price=100.0,
+            quantity=10,
+            strategy="test",
+        )
+        row2 = HoldingsRow(
+            datetime="2023-01-02",
+            exchange="NSE",
+            tradingsymbol="XYZ",
+            side="SELL",
+            avg_price=200.0,
+            quantity=5,
+            strategy="test",
+        )
+        handler.add_holding(row1)
+        handler.add_holding(row2)
+        result = handler.read_by_symbol("ABC")
+        assert len(result) == 1
+        assert result[0] == row1
+
+    def test_read_by_symbol_returns_empty_list_when_no_match(self, temp_data_dir):
+        handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
+        result = handler.read_by_symbol("NONEXISTENT")
+        assert result == []
+
+    def test_paper_mode_uses_different_path(self, temp_data_dir):
+        handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=True)
+        row = HoldingsRow(
+            datetime="2023-01-01",
+            exchange="NSE",
+            tradingsymbol="ABC",
             side="BUY",
-            avg_price=246.00,
-            quantity=33,
-            strategy="ratchet",
-        ))
-        handler.remove_holding("ITBEES", 33)
+            avg_price=100.0,
+            quantity=10,
+            strategy="test",
+        )
+        handler.add_holding(row)
+        assert Path(temp_data_dir, "paper", "holdings.csv").exists()
         rows = handler.read_all()
         assert len(rows) == 1
-        assert rows[0].quantity == 33
 
-    def test_remove_holding_removes_full_row_when_quantity_reaches_zero(self, tmp_path):
-        handler = TrackHoldingsHandler(data_dir=str(tmp_path))
-        handler.add_holding(HoldingsRow(
-            datetime="2024-01-15 10:30:00",
-            exchange="BSE",
-            tradingsymbol="ITBEES",
+    def test_write_all_overwrites_file(self, temp_data_dir):
+        handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
+        row1 = HoldingsRow(
+            datetime="2023-01-01",
+            exchange="NSE",
+            tradingsymbol="ABC",
             side="BUY",
-            avg_price=245.50,
-            quantity=33,
-            strategy="ratchet",
-        ))
-        handler.remove_holding("ITBEES", 33)
-        rows = handler.read_all()
-        assert len(rows) == 0
-
-    def test_remove_holding_does_nothing_for_nonexistent_symbol(self, tmp_path):
-        handler = TrackHoldingsHandler(data_dir=str(tmp_path))
-        handler.add_holding(HoldingsRow(
-            datetime="2024-01-15 10:30:00",
+            avg_price=100.0,
+            quantity=10,
+            strategy="test",
+        )
+        handler.add_holding(row1)
+        row2 = HoldingsRow(
+            datetime="2023-01-02",
             exchange="BSE",
-            tradingsymbol="ITBEES",
-            side="BUY",
-            avg_price=245.50,
-            quantity=33,
-            strategy="ratchet",
-        ))
-        handler.remove_holding("SYM_B", 33)
+            tradingsymbol="XYZ",
+            side="SELL",
+            avg_price=200.0,
+            quantity=5,
+            strategy="test2",
+        )
+        handler.write_all([row2])
         rows = handler.read_all()
         assert len(rows) == 1
-        assert rows[0].tradingsymbol == "ITBEES"
+        assert rows[0] == row2
