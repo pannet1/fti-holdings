@@ -88,7 +88,8 @@ class TestStreamQuotesHandler:
             symbol_map={"ACC": "NSE|26000", "ITBEES": "BSE|12345"},
         )
         quotes = handler.get_quotes(["ACC"])
-        assert quotes == {}
+        assert "ACC" not in quotes
+        assert "_time" in quotes
 
     @patch("app.features.market.StreamQuotes.Handler.Wsocket")
     def test_close_disconnects_wsocket(self, mock_ws: Any, mock_broker: Any) -> None:

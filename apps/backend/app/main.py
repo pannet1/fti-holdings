@@ -145,6 +145,9 @@ def main() -> None:
         holdings_tracker = TrackHoldingsHandler(data_dir=str(DATA_DIR))
         trades_journal = JournalTradesHandler(data_dir=str(DATA_DIR))
 
+        run_file = DATA_DIR / "run.txt"
+        if run_file.exists():
+            run_file.unlink()
         strategies = build_strategies(tracker, settings["global"])
         logger.info(f"Active strategies: {len(strategies)}")
 

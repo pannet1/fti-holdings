@@ -2,6 +2,8 @@ import logging
 from pathlib import Path
 from typing import Optional, Set
 
+import yaml
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,26 +20,60 @@ class TrackRunStateHandler:
         except FileNotFoundError:
             return set()
 
-    def _save_state(self, setting_file: str) -> None:
+    def _save_state(self, strategy_name: str) -> None:
         self.run_filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(self.run_filepath, "a") as f:
-            f.write(setting_file + "\n")
+            f.write(strategy_name + "\n")
+
+    def _extract_strategy_name(self, filepath: Path) -> Optional[str]:
+        try:
+            with open(filepath) as f:
+                data = yaml.safe_load(f)
+            if not isinstance(data, dict):
+                return None
+            for v in data.values():
+                if isinstance(v, dict) and "strategy" in v:
+                    return str(v["strategy"])
+            return None
+        except Exception:
+            return None
 
     def _find_next_strategy(self) -> Optional[str]:
-        all_from_dir = [p.name for p in self.data_dir.glob("*.yml") if p.name != "settings.yml"]
-        all_from_dir.extend(p.name for p in self.data_dir.glob("*.yaml") if p.name not in ("auth.yaml", "auth.yml"))
-        sets_from_file = self._get_run_state()
-        yet_to_run = [s for s in all_from_dir if s not in sets_from_file]
-        yet_to_run.sort(reverse=True)
-        return yet_to_run.pop() if yet_to_run else None
+        all_filepaths: list[Path] = list(self.data_dir.glob("*.yml"))
+        all_filepaths.extend(self.data_dir.glob("*.yaml"))
+        already_run = self._get_run_state()
+        candidates: list[tuple[str, Path]] = []
+        for fp in all_filepaths:
+            name = fp.name
+            if name in ("settings.yml", "settings.yaml", "auth.yaml", "auth.yml"):
+                continue
+            strategy_name = self._extract_strategy_name(fp)
+            if strategy_name is not None and strategy_name not in already_run:
+                candidates.append((strategy_name, fp))
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates.pop()[0] if candidates else None
 
     def execute(self) -> dict:
-        curr_set = self._find_next_strategy()
-        if curr_set:
-            from toolkit.fileutils import Fileutils
-            self._save_state(curr_set)
-            trade_settings = Fileutils().get_lst_fm_yml(str(self.data_dir / curr_set))
-            logger.info(f"Loaded next strategy: {curr_set}")
-            return {"status": "ok", "strategy_file": curr_set, "settings": trade_settings}
-        logger.info("No pending strategies to run")
-        return {"status": "empty", "strategy_file": None, "settings": None}
+        from toolkit.fileutils import Fileutils
+
+        curr_name = self._find_next_strategy()
+        if curr_name is None:
+            logger.info("No pending strategies to run")
+            return {"status": "empty", "strategy_file": None, "settings": None}
+        fp = None
+        for p in self.data_dir.glob("*.yml"):
+            if self._extract_strategy_name(p) == curr_name:
+                fp = p
+                break
+        if fp is None:
+            for p in self.data_dir.glob("*.yaml"):
+                if self._extract_strategy_name(p) == curr_name:
+                    fp = p
+                    break
+        if fp is None:
+            logger.error(f"Strategy '{curr_name}' resolved but file not found")
+            return {"status": "empty", "strategy_file": None, "settings": None}
+        self._save_state(curr_name)
+        trade_settings = Fileutils().get_lst_fm_yml(str(fp))
+        logger.info(f"Loaded next strategy: {curr_name}")
+        return {"status": "ok", "strategy_file": fp.name, "settings": trade_settings}

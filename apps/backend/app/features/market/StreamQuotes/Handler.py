@@ -4,7 +4,7 @@ from datetime import datetime
 from threading import Lock
 from typing import Any, Dict, List
 
-from broker_ai.finvasia.wsocket import Wsocket
+from .wsocket import Wsocket
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class StreamQuotesHandler:
         deadline = time.time() + timeout
         while time.time() < deadline:
             quotes = self.get_quotes(symbols)
-            if len(quotes) == len(symbols):
+            if all(sym in quotes for sym in symbols):
                 return quotes
             time.sleep(0.1)
         return self.get_quotes(symbols)
