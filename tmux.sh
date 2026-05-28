@@ -27,6 +27,8 @@ else
 	rm -f apps/backend/uv.lock packages/*/uv.lock
 	echo "Syncing dependencies..."
 	uv sync --directory apps/backend
+	echo "Forcing broker-ai reinstall from git fork..."
+	uv sync --reinstall-package broker-ai --directory apps/backend
 	if [ -t 0 ]; then
 		echo "Creating and attaching to session $sess."
 		tmux new-session -s "$sess" -x 120 -y 48 "uv run --directory apps/backend python -m app.main && tmux kill-session -t $sess"
