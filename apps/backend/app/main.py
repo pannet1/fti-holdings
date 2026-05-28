@@ -199,7 +199,7 @@ def main() -> None:
                         exchange=strat._exchange,
                         tradingsymbol=strat._tradingsymbol,
                         timeframe="5Min",
-                        start_date=pdlm.now().subtract(days=365).date(),
+                        start_date=pdlm.now().subtract(days=1826).date(),
                         end_date=pdlm.now().date(),
                     )
                     stream = HistoricQuotesHandler(config=config, fetch_history=batch_fetch_history)
