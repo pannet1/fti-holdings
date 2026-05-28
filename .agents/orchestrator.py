@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import difflib
 import json
 import os
 import random
@@ -312,6 +313,42 @@ def infer_domain_action(feature_name: str) -> tuple[str, str]:
     return "", name
 
 
+def resolve_feature(request_feature: str) -> Optional[Path]:
+    feature_dir = find_feature_dir(request_feature)
+    if feature_dir:
+        return feature_dir
+    return _fuzzy_suggest(request_feature)
+
+
+def _fuzzy_suggest(request_feature: str) -> Optional[Path]:
+    candidates: dict[str, Path] = {}
+    for domain_dir in FEATURES_DIR.iterdir():
+        if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
+            continue
+        for entry in domain_dir.iterdir():
+            if entry.is_dir() and not entry.name.startswith("_"):
+                candidates[entry.name] = entry
+
+    matches = difflib.get_close_matches(request_feature, list(candidates.keys()), n=3, cutoff=0.6)
+    if not matches:
+        return None
+
+    print(f"[Orchestrator] No exact match for '{request_feature}'. Did you mean:")
+    for i, m in enumerate(matches, 1):
+        print(f"  {i}. {m}")
+    print(f"  n. No, cancel")
+    choice = input(f"Enter choice [1-{len(matches)} or n]: ").strip().lower()
+    if choice == "n":
+        return None
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(matches):
+            return candidates[matches[idx]]
+    except ValueError:
+        pass
+    return None
+
+
 def find_feature_dir(request_feature: str) -> Optional[Path]:
     lower = request_feature.lower()
 
@@ -588,7 +625,7 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     # --- implement X: run backend agent ---
     if prefix == "implement":
         user_feature_name = action or rest
-        feature_dir = find_feature_dir(user_feature_name)
+        feature_dir = resolve_feature(user_feature_name)
         if not feature_dir:
             print(f"[Orchestrator] Feature not found: {user_feature_name}.")
             print(f"  First run: ./.agents/orchestrator.py feature/{user_feature_name}")
@@ -651,7 +688,7 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     # --- modify/X: contract amendment ---
     if prefix == "modify":
         feature_name = action or rest
-        feature_dir = find_feature_dir(feature_name)
+        feature_dir = resolve_feature(feature_name)
         if not feature_dir:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
@@ -669,7 +706,7 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     # --- bugfix/X: defect documentation ---
     if prefix == "bugfix":
         feature_name = action or rest
-        feature_dir = find_feature_dir(feature_name)
+        feature_dir = resolve_feature(feature_name)
         if not feature_dir:
             print(f"[Orchestrator] Feature not found: {feature_name}")
             return
@@ -686,7 +723,7 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
 
     if prefix == "delete":
         feature_name = action or rest
-        feature_dir = find_feature_dir(feature_name)
+        feature_dir = resolve_feature(feature_name)
         branch = current_branch()
         target_branches = [f"feature/{feature_name}", f"modify/{feature_name}", f"bugfix/{feature_name}"]
         on_target = branch in target_branches
