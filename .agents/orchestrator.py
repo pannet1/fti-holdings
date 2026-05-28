@@ -778,7 +778,6 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
             commit_type = "fix"
         else:
             commit_type = "feat"
-        repo_url = "https://github.com/pannet1/fti-holdings"
         print(f"[Orchestrator] Staging {feature_dir}...")
         r1 = subprocess.run(["git", "add", str(feature_dir)], capture_output=True, text=True, cwd=str(REPO_ROOT))
         if r1.returncode != 0:
@@ -797,7 +796,27 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
             print(f"[Orchestrator] git push failed: {r3.stderr.strip()}")
             return
         print(r3.stdout.strip())
-        print(f"[Orchestrator] PR: {repo_url}/pull/new/{branch}")
+        print(f"[Orchestrator] Merging {branch} into main...")
+        r4 = subprocess.run(["git", "checkout", "main"], capture_output=True, text=True, cwd=str(REPO_ROOT))
+        if r4.returncode != 0:
+            print(f"[Orchestrator] git checkout main failed: {r4.stderr.strip()}")
+            return
+        r5 = subprocess.run(["git", "merge", branch], capture_output=True, text=True, cwd=str(REPO_ROOT))
+        if r5.returncode != 0:
+            print(f"[Orchestrator] git merge failed: {r5.stderr.strip()}")
+            return
+        print(r5.stdout.strip())
+        r6 = subprocess.run(["git", "push", "origin", "main"], capture_output=True, text=True, cwd=str(REPO_ROOT))
+        if r6.returncode != 0:
+            print(f"[Orchestrator] git push main failed: {r6.stderr.strip()}")
+            return
+        print(f"[Orchestrator] Deleting remote branch {branch}...")
+        subprocess.run(["git", "push", "origin", "--delete", branch],
+                       capture_output=True, cwd=str(REPO_ROOT))
+        print(f"[Orchestrator] Deleting local branch {branch}...")
+        subprocess.run(["git", "branch", "-D", branch],
+                       capture_output=True, cwd=str(REPO_ROOT))
+        print(f"[Orchestrator] Done. {feature_name} merged to main.")
         return
 
     if prefix == "deploy":
