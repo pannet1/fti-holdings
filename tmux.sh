@@ -19,11 +19,12 @@ else
 		hash -r
 	fi
 	echo "Pulling latest code"
-	git reset --hard && git pull
+	git pull --ff-only
 	if [[ ! -f .venv/bin/python ]]; then
 		uv venv --python 3.10
 	fi
-	uv sync
+	echo "Syncing backend dependencies..."
+	uv sync --directory apps/backend
 	if [ -t 0 ]; then
 		echo "Creating and attaching to session $sess."
 		tmux new-session -s "$sess" -x 120 -y 48 "uv run --directory apps/backend python -m app.main && tmux kill-session -t $sess"
