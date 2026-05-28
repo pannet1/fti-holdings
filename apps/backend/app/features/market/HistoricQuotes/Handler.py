@@ -1,5 +1,9 @@
+import logging
 from typing import List, Dict, Any, Optional, Callable
 from .Schema import HistoricQuotesConfig
+
+logger = logging.getLogger(__name__)
+
 
 class HistoricQuotesHandler:
     def __init__(self, config: HistoricQuotesConfig, fetch_history: Callable[[str, str, str, str, int], Optional[List[Dict[str, Any]]]]) -> None:

@@ -1,6 +1,3 @@
-import pytest
-from pathlib import Path
-
 from .Handler import LoadSymbolsHandler
 
 

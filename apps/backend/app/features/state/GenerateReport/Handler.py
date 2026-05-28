@@ -2,7 +2,6 @@ import csv
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from .Schema import CycleReport, OpenPosition, ReportSummary, TradeReport
 

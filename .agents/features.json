@@ -10,18 +10,53 @@
     "TrackRunState": "state",
     "LoadSymbols": "state",
     "RunRatchetStrategy": "strategy",
-    "SeedConfig": "factory",
-    "HistoricQuotes": "market"
+    "HistoricQuotes": "market",
+    "StreamQuotes": "market",
+    "GenerateReport": "state"
   },
+  "standalone": [
+    "FeaturesJsonSyncTests.py"
+  ],
   "domain_keywords": {
-    "auth": ["broker", "AuthenticateBroker"],
-    "candle": ["common", "ManageCandle"],
-    "quote": ["market", "FetchQuotes"],
-    "order": ["order", "ManageOrder"],
-    "holding": ["state", "TrackHoldings"],
-    "trade": ["state", "JournalTrades"],
-    "settings": ["state", "LoadSettings"],
-    "ratchet": ["strategy", "RunRatchetStrategy"],
-    "seed": ["factory", "SeedConfig"]
+    "auth": [
+      "broker",
+      "AuthenticateBroker"
+    ],
+    "candle": [
+      "common",
+      "ManageCandle"
+    ],
+    "quote": [
+      "market",
+      "FetchQuotes"
+    ],
+    "order": [
+      "order",
+      "ManageOrder"
+    ],
+    "holding": [
+      "state",
+      "TrackHoldings"
+    ],
+    "trade": [
+      "state",
+      "JournalTrades"
+    ],
+    "settings": [
+      "state",
+      "LoadSettings"
+    ],
+    "ratchet": [
+      "strategy",
+      "RunRatchetStrategy"
+    ],
+    "streamquotes": [
+      "market",
+      "StreamQuotes"
+    ],
+    "generatereport": [
+      "state",
+      "GenerateReport"
+    ]
   }
 }

@@ -218,20 +218,21 @@ class {action}Schema(BaseModel):
 """,
     "Handler.py": """\
 import logging
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
 
 class {action}Handler:
 
-    def execute(self, **kwargs) -> dict:
+    def execute(self, **kwargs: Any) -> Dict[str, Any]:
         logger.info("{action}.execute called")
         return {{"status": "ok"}}
 """,
     "Controller.py": """\
 import logging
+from typing import Any, Dict
 
-from .Schema import {action}Schema
 from .Handler import {action}Handler
 
 logger = logging.getLogger(__name__)
@@ -239,10 +240,9 @@ logger = logging.getLogger(__name__)
 
 class {action}Controller:
 
-    def handle(self, request: dict) -> dict:
-        schema = {action}Schema(**request)
+    def handle(self, request: Dict[str, Any]) -> Dict[str, Any]:
         handler = {action}Handler()
-        return handler.execute(**schema.model_dump())
+        return handler.execute(**request)
 """,
     "Tests.py": """\
 import pytest
@@ -252,7 +252,7 @@ from .Handler import {action}Handler
 
 class Test{action}Handler:
 
-    def test_execute_returns_ok(self):
+    def test_execute_returns_ok(self) -> None:
         handler = {action}Handler()
         result = handler.execute()
         assert result["status"] == "ok"
@@ -471,13 +471,19 @@ def resolve_change_prompt(rest: str, prompt_content: str, feature_name: str, pre
 def _rewrite_spec_with_ai(feature_dir: Path, change_prompt: str, section: str) -> bool:
     spec_path = feature_dir / "spec.md"
     existing = spec_path.read_text() if spec_path.exists() else ""
+    heading = section.replace(" Request", "").replace(" Resolution", "")
 
-    amendment = f"\n## {section}\n\n{change_prompt}\n"
+    amendment = (
+        f"\n## {heading}\n\n"
+        f"{change_prompt}\n\n"
+        "### Constraints\n"
+        "* <!-- added by modification -->\n"
+    )
     if existing:
         spec_path.write_text(existing + amendment)
     else:
         spec_path.write_text(amendment)
-    print(f"[Orchestrator] spec.md amended ({section})")
+    print(f"[Orchestrator] spec.md amended with structured '{heading}' section")
     return True
 
 
@@ -504,6 +510,47 @@ def run_runner(persona_key: str, target: Path, task: str, error_path: Optional[P
     return result.returncode == 0
 
 
+def register_feature_in_json(feature_name: str, domain: str) -> None:
+    features = load_features_config()
+    known = features.setdefault("known_features", {})
+    if feature_name not in known:
+        known[feature_name] = domain
+        keyword = feature_name.lower().replace("feature", "").replace("handler", "").replace("controller", "")
+        keywords = features.setdefault("domain_keywords", {})
+        if keyword and keyword not in keywords:
+            keywords[keyword] = [domain, feature_name]
+        with open(FEATURES_CONFIG, "w") as f:
+            json.dump(features, f, indent=2)
+        print(f"[Orchestrator] Registered '{feature_name}' -> '{domain}' in features.json")
+
+
+def unregister_feature_from_json(feature_name: str, feature_dir: Optional[Path] = None) -> None:
+    features = load_features_config()
+    known = features.get("known_features", {})
+    keywords = features.get("domain_keywords", {})
+
+    # Match by name first, then by dir basename
+    candidates = [feature_name]
+    if feature_dir:
+        candidates.append(feature_dir.name)
+    removed = False
+    for name in candidates:
+        if name in known:
+            del known[name]
+            removed = True
+            # Also remove any keyword pointing to this feature
+            stale = [k for k, v in keywords.items() if len(v) >= 2 and v[1] == name]
+            for k in stale:
+                del keywords[k]
+    if removed:
+        features["known_features"] = known
+        features["domain_keywords"] = keywords
+        with open(FEATURES_CONFIG, "w") as f:
+            json.dump(features, f, indent=2)
+        print(f"[Orchestrator] Unregistered '{feature_name}' from features.json")
+    return removed
+
+
 def orchestrate(request: str, prompt_content: str = "", no_controller: bool = False) -> None:
     cmd = request.strip().split(None, 1)
     verb = cmd[0] if cmd else ""
@@ -525,6 +572,8 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
         domain = KNOWN_FEATURES.get(action, "")
         check_branch(action, "feature")
         scaffold_new_feature(domain, action, description, no_controller=no_controller)
+        if domain:
+            register_feature_in_json(action, domain)
         print("=" * 60)
         print("THEN RUN:")
         print(f"  ./.agents/orchestrator.py implement/{action}")
@@ -576,6 +625,8 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
         print(f"[Orchestrator] Generating code for {display}...")
         ok = run_runner("backend", feature_dir, task)
         if ok:
+            domain = feature_dir.parent.name if feature_dir.parent != FEATURES_DIR else ""
+            register_feature_in_json(feature_dir.name, domain)
             print(f"\n{'='*60}\nALL TESTS PASSED.\n")
             print("Run these commands to commit and push:\n")
             print(f"  git add {feature_dir}")
@@ -641,6 +692,8 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
             shutil.rmtree(feature_dir)
             print(f"[Orchestrator] Deleted feature directory: {feature_dir}")
             found_any = True
+
+        unregister_feature_from_json(feature_name, feature_dir)
 
         subprocess.run(["git", "stash"], cwd=str(REPO_ROOT), capture_output=True)
         if on_target:

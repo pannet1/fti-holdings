@@ -1,14 +1,14 @@
 import pytest
 import tempfile
 from pathlib import Path
-from .Handler import TrackHoldingsHandler, CSV_FIELDS
+from .Handler import TrackHoldingsHandler
 from .Schema import HoldingsRow
 
 
 class TestTrackHoldingsHandler:
 
     @pytest.fixture
-    def temp_data_dir(self):
+    def temp_data_dir(self) -> str:
         with tempfile.TemporaryDirectory() as tmpdir:
             yield tmpdir
 

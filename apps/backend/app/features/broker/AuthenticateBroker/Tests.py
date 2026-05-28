@@ -1,7 +1,4 @@
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
 from .Handler import AuthenticateBrokerHandler
 
 DUMMY_CREDS = dict(

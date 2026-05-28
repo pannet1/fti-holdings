@@ -30,12 +30,12 @@ import sys
 import urllib.request
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_DIR = REPO_ROOT / ".agents"
 MODEL_CONFIG = AGENTS_DIR / "model_config.json"
-MAX_QA_LOOPS = 3
+FEW_SHOT_COUNT = 2
 
 ZEN_URL = "https://opencode.ai/zen/v1/chat/completions"
 
@@ -155,6 +155,20 @@ def build_prompt(persona: str, target: Path, target_files: dict, task: str, erro
     if spec:
         parts.append("## Specification (spec.md)\n" + spec)
         parts.append("")
+
+    # Few-shot examples from real working features
+    examples = collect_examples(target)
+    if examples:
+        parts.append("## Reference Examples (real working code — match this style exactly)")
+        parts.append("")
+        for ex in examples:
+            parts.append(f"### {ex['name']} ({ex['dir']})")
+            for fname in ("Schema.py", "Handler.py", "Controller.py"):
+                content = ex["files"].get(fname, "")
+                if content:
+                    parts.append(f"```python\n# {fname}\n{content}\n```")
+                    parts.append("")
+
     for fname in ["Schema.py", "Handler.py", "Controller.py", "Tests.py"]:
         content = target_files.get(fname, "")
         if content:
@@ -166,15 +180,20 @@ def build_prompt(persona: str, target: Path, target_files: dict, task: str, erro
     parts.append("## Task\n" + task)
     parts.append("")
     parts.append(
-        "## Output Format\n"
-        "CRITICAL: Output ONLY the code blocks below. No analysis, reasoning, or explanation.\n"
-        "For each file, respond with a fenced code block preceded by `### <filename>`.\n"
-        "All 4 files are required: Schema.py, Handler.py, Controller.py, Tests.py\n"
+        "## Output Format (CRITICAL)\n"
+        "Output ONLY a single JSON object. No markdown, no explanation, no extra text.\n"
+        'Keys are filenames, values are the full file contents. All 4 files are required.\n'
         "Example:\n"
-        "### Handler.py\n"
-        "```python\n"
-        "...\n"
-        "```"
+        '```json\n'
+        '{\n'
+        '  "Schema.py": "from pydantic import BaseModel...",\n'
+        '  "Handler.py": "import logging\\nlogger = logging.getLogger(__name__)...",\n'
+        '  "Controller.py": "from .Handler import...",\n'
+        '  "Tests.py": "import pytest\\nclass Test...\\n    def test_...:"\n'
+        '}\n'
+        '```\n'
+        "CRITICAL: Every key must end in `.py`. Every value must be valid Python code.\n"
+        "Include ALL 4 files. Do NOT truncate. Do NOT use ... or comments like `# rest of code`."
     )
     return "\n".join(parts)
 
@@ -190,6 +209,12 @@ def call_llm(prompt: str) -> str:
 def extract_code_blocks(text: str) -> dict[str, str]:
     files: dict[str, str] = {}
 
+    # Primary: try JSON (both bare and fenced)
+    files = extract_json_blocks(text)
+    if files:
+        return files
+
+    # Fallback: markdown patterns
     # Pattern 1: ### filename\n```python ... ```
     pattern1 = re.compile(
         r'^###\s+(\S+)\s*\n```python\n(.*?)```',
@@ -258,6 +283,7 @@ def validate_code_standards(written: list[Path]) -> list[str]:
         if not p.exists() or p.suffix != ".py":
             continue
         text = p.read_text()
+        violations.extend(check_unused_imports(text, p.name))
         lines = text.splitlines()
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
@@ -265,14 +291,255 @@ def validate_code_standards(written: list[Path]) -> list[str]:
                 violations.append(f"{p.name}:{i} comment found")
             if "print(" in stripped and "logger" not in stripped:
                 violations.append(f"{p.name}:{i} print() found")
-        # Check function defs for missing return types
+            if re.search(r'[\U0001F600-\U0010FFFF]', stripped):
+                violations.append(f"{p.name}:{i} emoji found")
         for m in re.finditer(r'^(?:    )*def (\w+)\(', text, re.MULTILINE):
             start = m.start()
-            end_of_line = text.find('\n', start)
-            sig_line = text[start:end_of_line] if end_of_line > start else text[start:]
-            if "->" not in sig_line and not sig_line.strip().startswith("def test_"):
+            depth = 1
+            pos = start + len(m.group(0)) - 1
+            while depth > 0 and pos + 1 < len(text):
+                pos += 1
+                if text[pos] == '(':
+                    depth += 1
+                elif text[pos] == ')':
+                    depth -= 1
+            eol = text.find('\n', pos)
+            if eol == -1:
+                eol = len(text)
+            sig = text[start:eol]
+            if "->" not in sig and not sig.strip().startswith("def test_"):
                 violations.append(f"{p.name}: missing return type on {m.group(1)}")
+        if p.name == "__init__.py":
+            continue
+        if p.name == "Schema.py" and "class " in text and "BaseModel" in text:
+            continue
+        if p.name == "Tests.py":
+            continue
+        if "logging.getLogger" not in text:
+            violations.append(f"{p.name}: missing `logging.getLogger(__name__)`")
     return violations
+
+
+def check_unused_imports(code: str, fname: str) -> list[str]:
+    issues: list[str] = []
+    imports: list[tuple[str, int, str]] = []
+    lines = code.splitlines()
+    for i, line in enumerate(lines):
+        s = line.strip()
+        m = re.match(r'^from\s+(\S+)\s+import\s+(.+)$', s)
+        if m:
+            for part in m.group(2).split(','):
+                alias = part.strip().split(' as ')[-1].strip()
+                if alias and alias != '_' and not alias.startswith('*'):
+                    imports.append((alias.split('.')[0], i + 1, f"from {m.group(1)} import {part.strip()}"))
+            continue
+        m = re.match(r'^import\s+(.+)$', s)
+        if m:
+            for part in m.group(1).split(','):
+                alias = part.strip().split(' as ')[-1].strip()
+                top = alias.split('.')[0]
+                if top and top != '_':
+                    imports.append((top, i + 1, f"import {part.strip()}"))
+    has_future_annotations = "from __future__ import annotations" in code
+    for name, ln, full_import in imports:
+        if has_future_annotations and name in ("List", "Dict", "Optional", "Tuple", "Set", "Callable", "Type", "Any"):
+            continue
+        if has_future_annotations and full_import.startswith("from typing import"):
+            continue
+        if name == "__name__":
+            continue
+        rest = '\n'.join(lines[ln:])
+        if name not in rest:
+            issues.append(f"{fname}:{ln} unused import '{full_import}'")
+    return issues
+
+
+def validate_constitution(repo_root: Path, target: Path) -> list[str]:
+    """Enforce ALL 11 rules from AGENTS.md Section 3 via script code."""
+    issues: list[str] = []
+
+    # 1. Python version: 3.10.* only
+    py_ver_file = repo_root / ".python-version"
+    if py_ver_file.exists():
+        ver = py_ver_file.read_text().strip()
+        if not ver.startswith("3.10"):
+            issues.append(f"Python version must be 3.10.*, got: {ver}")
+    else:
+        issues.append("Missing .python-version (must be 3.10.*)")
+
+    # 2. Package manager: uv only
+    pyproject = repo_root / "pyproject.toml"
+    if pyproject.exists():
+        text = pyproject.read_text()
+        if '[tool.poetry]' in text or '[tool.pdm]' in text:
+            issues.append("pyproject.toml uses non-uv tool (poetry/pdm detected)")
+    else:
+        issues.append("Missing pyproject.toml (uv-managed)")
+
+    # 3. No pip/poetry/conda
+    for marker in ("requirements.txt", "Pipfile", "Pipfile.lock", "poetry.lock", "environment.yml", "setup.py", "setup.cfg"):
+        if (repo_root / marker).exists():
+            issues.append(f"Forbidden package manager file: {marker} (use uv only)")
+
+    # 4. No requirements.txt (duplicate check, explicit)
+    if (repo_root / "requirements.txt").exists():
+        issues.append("requirements.txt not permitted (use pyproject.toml + uv)")
+
+    # 5. Project time library only — check imports in generated code
+    # Detect the project's designated time library from existing code
+    existing_files = list(repo_root.rglob("*.py"))
+    time_libs = {"pendulum", "arrow", "python-dateutil", "delorean", "maya", "udatetime", "pytz"}
+    project_time_lib: str = ""
+    for f in existing_files:
+        if "__pycache__" in f.parts:
+            continue
+        text = f.read_text()
+        for m in re.finditer(r'^import (\w+)|^from (\w+)', text, re.MULTILINE):
+            lib = m.group(1) or m.group(2)
+            if lib in time_libs:
+                project_time_lib = lib
+                break
+        if project_time_lib:
+            break
+    if not project_time_lib:
+        project_time_lib = "pendulum"  # default fallback
+    generated_files = list(target.rglob("*.py")) if target.is_dir() else []
+    for f in generated_files:
+        if f.name.startswith("__"):
+            continue
+        text = f.read_text()
+        for m in re.finditer(r'^import (\w+)|^from (\w+)', text, re.MULTILINE):
+            lib = m.group(1) or m.group(2)
+            if lib in time_libs and lib != project_time_lib:
+                issues.append(f"{f.name}: use project time library ({project_time_lib}) instead of {lib}")
+
+    # 6. logging.getLogger — checked in validate_code_standards (per-file)
+    # 7. Zero comments — checked in validate_code_standards (per-file)
+    # 8. No secrets — grep for common secret patterns in generated code
+    # Exclude test files (fixture data is legitimate)
+    secret_patterns = [
+        (r'(?i)(password|secret|token|api_key|api_secret)\s*[=:]\s*["\'][^"\']+["\']', "hardcoded secret"),
+        (r'(?i)(access_token|auth_token)\s*=\s*["\'][^"\']{8,}["\']', "hardcoded auth token"),
+    ]
+    for f in generated_files:
+        if f.name.startswith("__") or f.suffix != ".py" or f.name == "Tests.py":
+            continue
+        text = f.read_text()
+        for pat, label in secret_patterns:
+            for m in re.finditer(pat, text):
+                line_num = text[:m.start()].count("\n") + 1
+                issues.append(f"{f.name}:{line_num} potential {label}")
+
+    # 9. No emojis — checked in validate_code_standards (per-line)
+    # 10. Unit tests — checked in validate_code_structure (Tests.py)
+    # 11. Type annotations — checked in validate_code_standards (return types)
+
+    return issues
+
+
+def validate_root_files(repo_root: Path) -> list[str]:
+    issues: list[str] = []
+    backend_app = repo_root / "apps" / "backend" / "app"
+    root_files: list[Path] = []
+    for f in sorted(backend_app.iterdir()):
+        if f.suffix == ".py" and not f.name.startswith("_") and f.is_file():
+            root_files.append(f)
+    if not root_files:
+        return issues
+    for f in root_files:
+        code = f.read_text()
+        issues.extend(validate_code_standards([f]))
+        issues.extend(validate_code_structure(code, f.name))
+        issues.extend(validate_pep8(repo_root, f))
+    issues.extend(validate_features_json_sync(repo_root))
+    issues.extend(validate_standalone_files(repo_root))
+    return [f"[ROOT] {i}" for i in issues]
+
+
+def validate_features_json_sync(repo_root: Path) -> list[str]:
+    issues: list[str] = []
+    features_dir = repo_root / "apps" / "backend" / "app" / "features"
+    features_json = repo_root / ".agents" / "features.json"
+    if not features_json.exists():
+        return ["Missing .agents/features.json"]
+    import json
+    cfg = json.loads(features_json.read_text())
+    known = cfg.get("known_features", {})
+    standalone = cfg.get("standalone", [])
+
+    dir_features: dict[str, str] = {}
+    for domain_dir in features_dir.iterdir():
+        if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
+            continue
+        for feature_dir in domain_dir.iterdir():
+            if feature_dir.is_dir() and not feature_dir.name.startswith("_"):
+                dir_features[feature_dir.name] = domain_dir.name
+
+    for fname, domain in dir_features.items():
+        if fname not in known:
+            issues.append(f"Feature '{fname}' exists on disk but missing from features.json")
+
+    for fname, domain in known.items():
+        if fname not in dir_features:
+            issues.append(f"Feature '{fname}' in features.json but missing on disk")
+        elif dir_features[fname] != domain:
+            issues.append(f"Feature '{fname}': features.json says domain '{domain}' but disk says '{dir_features[fname]}'")
+
+    disk_files = {f.name for f in features_dir.iterdir() if f.is_file() and f.suffix == ".py" and not f.name.startswith("__")}
+    listed_standalone = set(standalone)
+    extra = listed_standalone - disk_files
+    if extra:
+        issues.append(f"Standalone files in features.json but missing on disk: {sorted(extra)}")
+    unlisted = disk_files - listed_standalone
+    if unlisted:
+        issues.append(f"Standalone .py files in features/ not listed in features.json: {sorted(unlisted)}")
+
+    return issues
+
+
+def validate_standalone_files(repo_root: Path) -> list[str]:
+    issues: list[str] = []
+    features_json = repo_root / ".agents" / "features.json"
+    features_dir = repo_root / "apps" / "backend" / "app" / "features"
+    if not features_json.exists():
+        return issues
+    import json
+    cfg = json.loads(features_json.read_text())
+    standalone = cfg.get("standalone", [])
+    for fname in standalone:
+        fpath = features_dir / fname
+        if not fpath.exists():
+            issues.append(f"Standalone file '{fname}' not found on disk")
+            continue
+        code = fpath.read_text()
+        issues.extend(validate_code_standards([fpath]))
+        issues.extend(validate_code_structure(code, fname))
+        issues.extend(validate_pep8(repo_root, fpath))
+    return issues
+
+
+def validate_pep8(repo_root: Path, target: Path) -> list[str]:
+    issues: list[str] = []
+    py_files = list(target.rglob("*.py")) if target.is_dir() else [f for f in [target] if f.suffix == ".py"]
+    py_files = [f for f in py_files if not f.name.startswith("__")]
+    if not py_files:
+        return issues
+    cmd = ["uv", "run", "pycodestyle", "--select=E302,E501", "--first"] + [str(f) for f in py_files]
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(repo_root), timeout=30)
+    if result.returncode != 0:
+        for line in result.stdout.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(":", 3)
+            if len(parts) >= 4:
+                fname = Path(parts[0]).name
+                lineno = parts[1]
+                msg = parts[3].strip()
+                code = msg.split()[0] if msg else ""
+                label = "line-too-long" if code == "E501" else "blank-lines"
+                issues.append(f"{fname}:{lineno} PEP 8 {label}")
+    return issues
 
 
 def truncated_files(written: list[Path]) -> list[str]:
@@ -287,6 +554,72 @@ def truncated_files(written: list[Path]) -> list[str]:
         if last_char in "([{," or content.endswith("Optional["):
             truncated.append(p.name)
     return truncated
+
+
+def collect_examples(target: Path, count: int = FEW_SHOT_COUNT) -> list[dict[str, Any]]:
+    """Grab working feature examples from the same domain for few-shot context."""
+    domain_dir = target.parent
+    if not domain_dir.is_dir():
+        return []
+    examples: list[dict[str, Any]] = []
+    for entry in sorted(domain_dir.iterdir()):
+        if entry == target or not entry.is_dir() or entry.name.startswith("_"):
+            continue
+        files: dict[str, str] = {}
+        for fname in ("Schema.py", "Handler.py", "Controller.py", "Tests.py"):
+            path = entry / fname
+            if path.exists():
+                files[fname] = path.read_text()
+        if len(files) >= 3:
+            examples.append({"name": entry.name, "dir": str(entry.relative_to(REPO_ROOT)), "files": files})
+            if len(examples) >= count:
+                break
+    return examples
+
+
+def validate_code_structure(code: str, fname: str) -> list[str]:
+    issues: list[str] = []
+    if fname == "Schema.py" and "BaseModel" not in code and "Schema" in fname:
+        issues.append("Schema.py must import and use pydantic.BaseModel")
+    if fname == "Handler.py" and "class " not in code:
+        issues.append("Handler.py must define a class")
+    if fname == "Handler.py" and "logging.getLogger" not in code:
+        issues.append("Handler.py must have a module-level logger")
+    if fname == "Tests.py" and "def test_" not in code:
+        issues.append("Tests.py must contain test functions")
+    opens = code.count("(")
+    closes = code.count(")")
+    if opens != closes:
+        issues.append(f"Unbalanced parentheses: {opens} open vs {closes} close")
+    opens = code.count("'''")
+    if opens % 2 != 0:
+        issues.append("Unbalanced triple-single-quotes")
+    opens = code.count('"""')
+    if opens % 2 != 0:
+        issues.append("Unbalanced triple-double-quotes")
+    return issues
+
+
+def extract_json_blocks(text: str) -> dict[str, str]:
+    """Try JSON parse; fall back to markdown parsing."""
+    text = text.strip()
+    # Strip markdown fences if present
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3].strip()
+    # Try JSON parse
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    result: dict[str, str] = {}
+    for k, v in data.items():
+        if isinstance(k, str) and isinstance(v, str) and k.endswith(".py"):
+            result[k] = v
+    return result
 
 
 def run_pytest(test_path: Path) -> tuple[bool, str]:
@@ -360,28 +693,46 @@ def auto_backend(target: Path, prompt: str) -> bool:
             print(f"[Runner] WARNING: {preexisting} pre-existing failures.", file=sys.stderr)
             return True
 
+    last_error: str = ""
     for attempt in range(1, 4):
         print(f"[Runner] LLM attempt {attempt}/3...")
-        response = call_llm(prompt)
+        if last_error:
+            retry_prompt = prompt + "\n\n## Previous Attempt Feedback\n" + last_error + \
+                "\nFix ALL of the above issues. Output valid JSON only."
+            response = call_llm(retry_prompt)
+        else:
+            response = call_llm(prompt)
         files = extract_code_blocks(response)
         if not files:
-            print(f"[Runner] No code blocks found in LLM response. Retrying...", file=sys.stderr)
+            last_error = "No code blocks found in LLM response."
+            print(f"[Runner] {last_error} Retrying...", file=sys.stderr)
             continue
         written, deleted = write_code_blocks(files, target)
         for w in written:
             print(f"[Runner] Wrote {w}")
         bad = truncated_files(written)
         if bad:
-            print(f"[Runner] Files appear truncated: {bad}. Retrying...", file=sys.stderr)
+            last_error = f"Files appear truncated: {bad}. Regenerate complete code."
+            print(f"[Runner] {last_error} Retrying...", file=sys.stderr)
             continue
+        struct_issues: list[str] = []
+        for w in written:
+            struct_issues.extend(validate_code_structure(w.read_text(), w.name))
         std_violations = validate_code_standards(written)
-        if std_violations:
-            print(f"[Runner] Code standard violations:\n  " + "\n  ".join(std_violations), file=sys.stderr)
+        const_violations = validate_constitution(REPO_ROOT, target)
+        pep8_violations = validate_pep8(REPO_ROOT, target)
+        all_violations = struct_issues + std_violations + const_violations + pep8_violations
+        if all_violations:
+            last_error = "Violations:\n  " + "\n  ".join(all_violations)
+            print(f"[Runner] {last_error}", file=sys.stderr)
         missing = expected - set(files.keys())
         if missing:
-            print(f"[Runner] Missing files: {missing}. Will retry LLM call.", file=sys.stderr)
+            last_error = f"Missing files: {missing}. Must include ALL 4 files."
+            print(f"[Runner] {last_error} Retrying...", file=sys.stderr)
             continue
-        break
+        if not all_violations and not missing:
+            last_error = ""
+            break
     else:
         print(f"[Runner] Failed to generate complete code after 3 attempts.", file=sys.stderr)
         return False
@@ -398,37 +749,18 @@ def auto_backend(target: Path, prompt: str) -> bool:
         regr_passed, regr_output = run_pytest(REPO_ROOT / "apps" / "backend" / "app" / "features")
         if regr_passed:
             print(f"[Runner] Regression suite: all pass.")
-            return True
-        preexisting = regr_output.count("FAILED")
-        print(f"[Runner] WARNING: {preexisting} pre-existing failures in regression suite (not introduced by this change).", file=sys.stderr)
+        else:
+            preexisting = regr_output.count("FAILED")
+            print(f"[Runner] WARNING: {preexisting} pre-existing failures in regression suite (not introduced by this change).", file=sys.stderr)
+        print(f"[Runner] Validating root-level files (main.py)...")
+        root_issues = validate_root_files(REPO_ROOT)
+        if root_issues:
+            print(f"[Runner] ROOT FILE VIOLATIONS:\n  " + "\n  ".join(root_issues), file=sys.stderr)
+        else:
+            print(f"[Runner] Root files: all checks pass.")
         return True
 
-    print(f"[Runner] Tests failed. Entering auto-QA loop...")
-    qa_persona = Path(__file__).parent / "personas" / "qa_agent.md"
-    if not qa_persona.exists():
-        print(f"[Runner] QA persona not found at {qa_persona}", file=sys.stderr)
-        return False
-    qa_text = read_file(qa_persona)
-
-    for attempt in range(1, MAX_QA_LOOPS + 1):
-        target_files = collect_target_files(target)
-        qa_prompt = build_prompt(qa_text, target, target_files,
-                                 f"Fix the {target.name} feature. Tests are failing. Analyze and fix.",
-                                 output)
-        print(f"[Runner] QA attempt {attempt}/{MAX_QA_LOOPS}...")
-        qa_response = call_llm(qa_prompt)
-        fix_files = extract_code_blocks(qa_response)
-        if not fix_files:
-            print(f"[Runner] No code blocks in QA response.", file=sys.stderr)
-            continue
-        write_code_blocks(fix_files, target)
-        passed, output = run_pytest(test_file)
-        if passed:
-            print(f"[Runner] All Tests Passed after QA attempt {attempt}.")
-            return True
-        print(f"[Runner] QA attempt {attempt} still failing.")
-
-    print(f"[Runner] ESCALATE: Auto-QA failed after {MAX_QA_LOOPS} attempts.")
+    print(f"[Runner] Tests failed. Generated code does not pass. ESCALATE to human.")
     return False
 
 

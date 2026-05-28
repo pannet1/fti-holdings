@@ -1,7 +1,3 @@
-import pendulum as pdlm
-
-import pytest
-
 from .Handler import ManageCandleHandler
 
 
