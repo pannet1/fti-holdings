@@ -1,3 +1,4 @@
+import json
 import logging
 import sys
 import time
@@ -236,6 +237,7 @@ def main() -> None:
             stream = None
 
         backtest_tick = 0
+        last_tick = False
         status_interval = 60
         last_status = time.monotonic()
         while True:
@@ -254,9 +256,7 @@ def main() -> None:
                     for s in strategies:
                         s._candle.force_index(candle_idx)
                     backtest_tick += 1
-                    if backtest_tick >= len(stream.candles):
-                        logger.info(f"Backtest complete: {len(stream.candles)} candles processed")
-                        break
+                    last_tick = backtest_tick >= len(stream.candles)
 
                 for strategy in strategies:
                     signal = runner.execute_tick(strategy=strategy, quotes=quotes)
@@ -271,6 +271,19 @@ def main() -> None:
                             holdings_tracker,
                             trades_journal,
                         )
+
+                if is_backtest and last_tick:
+                    logger.info(f"Backtest complete: {len(stream.candles)} candles processed")
+                    ltp_data = {
+                        "timestamp": quotes.get("_time", ""),
+                        "prices": {
+                            s._tradingsymbol: quotes.get(s._tradingsymbol) for s in strategies
+                        },
+                    }
+                    stream_dir = DATA_DIR / "paper" if is_paper else DATA_DIR
+                    stream_dir.mkdir(parents=True, exist_ok=True)
+                    (stream_dir / "ltp.json").write_text(json.dumps(ltp_data))
+                    break
 
                 if not is_backtest:
                     time.sleep(1)

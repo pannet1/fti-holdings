@@ -1,7 +1,9 @@
 import csv
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from .Schema import CycleReport, OpenPosition, ReportSummary, TradeReport
 
@@ -14,10 +16,31 @@ class GenerateReportHandler:
 
     def __init__(self, data_dir: str = "data", paper: bool = False) -> None:
         base = Path(data_dir)
+        self._base = base
+        self._paper = paper
         if paper:
             self._filepath = base / "paper" / "trades.csv"
         else:
             self._filepath = base / "trades.csv"
+
+    def _ltp_path(self) -> Path:
+        if self._paper:
+            return self._base / "paper" / "ltp.json"
+        return self._base / "ltp.json"
+
+    def _read_ltp(self) -> Optional[float]:
+        path = self._ltp_path()
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text())
+            prices = data.get("prices", {})
+            if not prices:
+                return None
+            vals = [v for v in prices.values() if v is not None]
+            return float(vals[0]) if vals else None
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+            return None
 
     def generate_report(self) -> str:
         if not self._filepath.exists():
@@ -112,7 +135,14 @@ class GenerateReportHandler:
         lines.append(f"Return on peak capital: {report.summary.return_on_peak_pct:.1f}%")
         if report.open_position:
             o = report.open_position
-            lines.append(f"Open position: {o.quantity} @ \u20b9{o.avg_price} (\u20b9{o.invested:,.0f} invested)")
+            ltp = self._read_ltp()
+            if ltp:
+                mv = o.quantity * ltp
+                upnl = round(mv - o.invested, 2)
+                upnl_pct = round(upnl / o.invested * 100, 2)
+                lines.append(f"Open position: {o.quantity} @ \u20b9{o.avg_price} (\u20b9{o.invested:,.0f})  LTP: \u20b9{ltp}  Value: \u20b9{mv:,.0f}  Unrealized: \u20b9{upnl:+,.0f} ({upnl_pct:+.2f}%)")
+            else:
+                lines.append(f"Open position: {o.quantity} @ \u20b9{o.avg_price} (\u20b9{o.invested:,.0f} invested)")
         lines.append(f"=== End ===")
         return "\n".join(lines)
 

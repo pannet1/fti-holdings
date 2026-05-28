@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional
 
+import pendulum as pdlm
 from app.features.common.ManageCandle.Handler import ManageCandleHandler
 from app.features.state.TrackHoldings.Schema import HoldingsRow
 
@@ -90,22 +91,24 @@ class Rachet:
 
         self._read_holdings(self._holdings_path())
 
-        trade_time: str | None = None
-        if not self._holdings:
-            now_raw = quotes.get("_time")
-            if now_raw:
-                trade_time = str(now_raw)
-        if trade_time is None:
+        now_raw = quotes.get("_time")
+        now_str: str | None = str(now_raw) if now_raw else None
+        if now_str is None:
             close_event = self._candle.check_close()
-            if close_event is not None:
-                trade_time = close_event["close_time"]
-        if trade_time is None:
+            if close_event is None:
+                return None
+            now_str = close_event["close_time"]
+
+        try:
+            dt = pdlm.from_format(now_str, "YYYY-MM-DD HH:mm:ss")
+        except ValueError:
+            dt = pdlm.from_format(now_str, "DD-MM-YYYY HH:mm:ss")
+        now_str = dt.format("YYYY-MM-DD HH:mm:ss")
+
+        if now_str[11:16] < self._start_time or now_str[11:16] > self._stop_time:
             return None
 
-        if trade_time[11:16] < self._start_time or trade_time[11:16] > self._stop_time:
-            return None
-
-        trade_date = trade_time[:10]
+        trade_date = now_str[:10]
 
         if not self._holdings:
             if trade_date == self._last_sell_date:
@@ -118,7 +121,7 @@ class Rachet:
                 "exchange": self._exchange,
                 "quantity": qty,
                 "price": cmp,
-                "time": trade_time,
+                "time": now_str,
                 "multiplier": 1,
             }
 
@@ -131,7 +134,7 @@ class Rachet:
                 "exchange": self._exchange,
                 "quantity": self._total_qty,
                 "price": cmp,
-                "time": trade_time,
+                "time": now_str,
                 "multiplier": 0,
             }
 
@@ -158,7 +161,7 @@ class Rachet:
                 "exchange": self._exchange,
                 "quantity": qty,
                 "price": cmp,
-                "time": trade_time,
+                "time": now_str,
                 "multiplier": self._multiplier[next_idx],
             }
 
