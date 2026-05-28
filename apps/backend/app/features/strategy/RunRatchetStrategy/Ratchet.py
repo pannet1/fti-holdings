@@ -145,14 +145,23 @@ class Rachet:
         buy_lower = last_price * (1.0 - self._perc)
         buy_upper = last_price * (1.0 + self._perc)
         if cmp <= buy_lower or cmp >= buy_upper:
+            if cmp >= buy_upper:
+                qty = self._x
+                self._last_buy_qty = qty
+                return {
+                    "action": "BUY",
+                    "tradingsymbol": self._tradingsymbol,
+                    "exchange": self._exchange,
+                    "quantity": qty,
+                    "price": cmp,
+                    "time": now_str,
+                    "multiplier": 1,
+                }
             last_qty = self._holdings[-1].quantity
             ratio = last_qty / self._x
             closest = min(self._multiplier, key=lambda m: abs(m - ratio))
             current_idx = self._multiplier.index(closest)
-            if cmp >= buy_upper:
-                next_idx = max(0, current_idx - 1)
-            else:
-                next_idx = min(len(self._multiplier) - 1, current_idx + 1)
+            next_idx = min(len(self._multiplier) - 1, current_idx + 1)
             qty = self._x * self._multiplier[next_idx]
             self._last_buy_qty = qty
             return {
