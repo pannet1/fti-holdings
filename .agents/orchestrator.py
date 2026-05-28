@@ -218,10 +218,10 @@ class {action}Schema(BaseModel):
     pass
 """,
     "Handler.py": """\
-import logging
 from typing import Any, Dict
 
-logger = logging.getLogger(__name__)
+from shared.logger import logging_func
+logger = logging_func(__name__)
 
 
 class {action}Handler:
@@ -231,12 +231,11 @@ class {action}Handler:
         return {{"status": "ok"}}
 """,
     "Controller.py": """\
-import logging
 from typing import Any, Dict
 
 from .Handler import {action}Handler
-
-logger = logging.getLogger(__name__)
+from shared.logger import logging_func
+logger = logging_func(__name__)
 
 
 class {action}Controller:

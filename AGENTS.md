@@ -93,10 +93,10 @@ Human stages (`git add .`), commits (`git commit -m "feat: implement X"`), pushe
 
 ## 4. Logging Pattern (Cross-Project Standard)
 
-All projects use `AsyncLogger` from `toolkit.logger` for non-blocking async logging. The setup is done once at import time in `shared/logger.py`:
+All projects use `AsyncLogger` from `toolkit.async_logger` for non-blocking async logging. The setup is done once at import time in `shared/logger.py`:
 
 ```python
-from toolkit.logger import AsyncLogger
+from toolkit.async_logger import AsyncLogger
 
 def async_logger():
     manager = AsyncLogger(level, log_file, use_journal=True)
@@ -106,17 +106,16 @@ def async_logger():
 logging_func = async_logger()          # module-level, runs at import
 ```
 
-**How every module logs** — standard Python `logging.getLogger(__name__)`:
+**How every module logs** — every `.py` file MUST use `from shared.logger import logging_func`:
 
 ```python
-import logging
-logger = logging.getLogger(__name__)
-# or equivalently:
 from shared.logger import logging_func
 logger = logging_func(__name__)
 ```
 
 **Why this works**: `AsyncLogger.start()` attaches a `QueueHandler` to Python's root logger. Every logger created via `logging.getLogger(__name__)` inherits the root logger's configuration — all log records flow through `AsyncLogger`'s async queue to files/journal/stdout transparently.
+
+**Enforcement**: The Orchestrator MUST use `from shared.logger import logging_func` in all scaffolded feature templates (Handler.py, Controller.py, standalone scripts). Any new `.py` file added to the project MUST use this pattern — bare `logging.getLogger(__name__)` is no longer permitted.
 
 **Logger init vs settings loader**: The logger reads `settings.yml` directly from disk at import time — it does NOT go through the settings handler. This avoids a circular dependency (logger needs settings, handler needs logger). The settings handler (`LoadTradeSettingsHandler`) is a separate path for the rest of the app. Two readers, one file.
 
