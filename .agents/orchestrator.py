@@ -796,8 +796,12 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
         print(f"[Orchestrator] Committing: {msg_body}")
         r2 = subprocess.run(["git", "commit", "-m", msg_body], capture_output=True, text=True, cwd=str(REPO_ROOT))
         if r2.returncode != 0:
-            print(f"[Orchestrator] git commit failed: {r2.stderr.strip()}")
-            return
+            combined = r2.stdout + r2.stderr
+            if "nothing to commit" in combined:
+                print("[Orchestrator] Nothing to commit — already up to date.")
+            else:
+                print(f"[Orchestrator] git commit failed: {r2.stderr.strip()}")
+                return
         print(r2.stdout.strip())
         print(f"[Orchestrator] Pushing {branch}...")
         r3 = subprocess.run(["git", "push", "origin", branch], capture_output=True, text=True, cwd=str(REPO_ROOT))
