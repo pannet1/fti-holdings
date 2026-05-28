@@ -8,7 +8,7 @@ at every step. The Human copies and pastes each command.
 Usage:
     ./.agents/orchestrator.py feature/ManageCandle
     ./.agents/orchestrator.py feature/ManageCandle --prompt drafts/my_prompt.md
-    ./.agents/orchestrator.py implement/ManageCandle
+    ./.agents/orchestrator.py do/ManageCandle
     ./.agents/orchestrator.py modify/RunRatchetStrategy
     ./.agents/orchestrator.py bugfix/RunRatchetStrategy
 """
@@ -477,8 +477,8 @@ def scaffold_new_feature(domain: str, action: str, overview: str = "", no_contro
 def amend_spec(feature_dir: Path, heading: str, branch_prefix: str, feature_name: str = "") -> None:
     display = feature_name or feature_dir.name
     print(f"\n{'='*60}\n{heading} for {display}")
-    print(f"Spec amended. Run implement when ready:\n")
-    print(f"  ./.agents/orchestrator.py implement/{display}")
+    print(f"Spec amended. Run do when ready:\n")
+    print(f"  ./.agents/orchestrator.py do/{display}")
     print("=" * 60)
 
 
@@ -593,7 +593,7 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     verb = cmd[0] if cmd else ""
     rest = cmd[1] if len(cmd) > 1 else ""
 
-    # Parse slash-format: feature/X, modify/X, bugfix/X, implement/X
+    # Parse slash-format: feature/X, modify/X, bugfix/X, do/X
     # Lowercase only the command prefix, preserve feature name casing
     if "/" in verb:
         raw_prefix, action = verb.split("/", 1)
@@ -618,12 +618,12 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
             register_feature_in_json(action, domain)
         print("=" * 60)
         print("THEN RUN:")
-        print(f"  ./.agents/orchestrator.py implement/{action}")
+        print(f"  ./.agents/orchestrator.py do/{action}")
         print("=" * 60)
         return
 
-    # --- implement X: run backend agent ---
-    if prefix == "implement":
+    # --- do X: run backend agent ---
+    if prefix == "do":
         user_feature_name = action or rest
         feature_dir = resolve_feature(user_feature_name)
         if not feature_dir:
@@ -843,7 +843,7 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     print("Commands:")
     print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle')
     print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle --prompt drafts/my_prompt.md')
-    print('  implement ./.agents/orchestrator.py implement/ManageCandle')
+    print('  do ./.agents/orchestrator.py do/ManageCandle')
     print('  modify    ./.agents/orchestrator.py modify/RunRatchetStrategy')
     print('  bugfix    ./.agents/orchestrator.py bugfix/RunRatchetStrategy')
 
@@ -856,7 +856,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "command",
         nargs="*",
-        help='e.g. feature/ManageCandle / implement/ManageCandle / modify/RunRatchetStrategy',
+        help='e.g. feature/ManageCandle / do/ManageCandle / modify/RunRatchetStrategy',
     )
     parser.add_argument(
         "--prompt", "-p",
@@ -880,7 +880,7 @@ def parse_args() -> argparse.Namespace:
         print("Commands:")
         print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle')
         print('  scaffold  ./.agents/orchestrator.py feature/ManageCandle --prompt drafts/my_prompt.md')
-        print('  implement ./.agents/orchestrator.py implement/ManageCandle')
+        print('  do ./.agents/orchestrator.py do/ManageCandle')
         print('  modify    ./.agents/orchestrator.py modify/RunRatchetStrategy')
         print('  bugfix    ./.agents/orchestrator.py bugfix/RunRatchetStrategy')
         print('  merge     ./.agents/orchestrator.py merge/ManageCandle')
