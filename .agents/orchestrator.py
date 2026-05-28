@@ -298,9 +298,9 @@ def infer_domain_action(feature_name: str) -> tuple[str, str]:
         return KNOWN_FEATURES[name], name
     lower = name.lower()
     for key, (domain, action) in DOMAIN_KEYWORDS.items():
-        if key in lower:
+        if lower == key or lower == action.lower():
             return domain, action
-    # filesystem fallback: scan existing features
+    # filesystem fallback: exact-match existing features
     for domain_dir in FEATURES_DIR.iterdir():
         if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
             continue
@@ -328,18 +328,18 @@ def find_feature_dir(request_feature: str) -> Optional[Path]:
             if feature_dir.is_dir():
                 return feature_dir
 
-    # Filesystem scan: match subdirectories OR flat feature domain dirs
+    # Filesystem scan: exact-match subdirectories OR flat feature domain dirs
     for domain_dir in FEATURES_DIR.iterdir():
         if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
             continue
         # Check if domain dir itself is a flat feature matching the request
-        if domain_dir.name.lower() in lower or lower in domain_dir.name.lower():
+        if domain_dir.name.lower() == lower:
             if (domain_dir / "Handler.py").exists():
                 return domain_dir
         # Check subdirectory features
         for entry in domain_dir.iterdir():
             if entry.is_dir() and not entry.name.startswith("_"):
-                if entry.name.lower() in lower or lower in entry.name.lower():
+                if entry.name.lower() == lower:
                     return entry
     return None
 
@@ -570,6 +570,11 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
     if prefix == "feature":
         description = resolve_change_prompt(rest, prompt_content, action, "feature")
         domain = KNOWN_FEATURES.get(action, "")
+        if not domain:
+            for _key, (_dom, _act) in DOMAIN_KEYWORDS.items():
+                if _key in action.lower() or _act.lower() == action.lower():
+                    domain = _dom
+                    break
         check_branch(action, "feature")
         scaffold_new_feature(domain, action, description, no_controller=no_controller)
         if domain:
