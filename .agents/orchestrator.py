@@ -755,6 +755,51 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
 
         return
 
+    if prefix == "merge":
+        feature_name = action or rest
+        if not feature_name:
+            branch = current_branch()
+            for br_prefix in ("feature/", "modify/", "bugfix/"):
+                if branch.startswith(br_prefix):
+                    feature_name = branch[len(br_prefix):]
+                    break
+        if not feature_name:
+            print("[Orchestrator] No feature name given and cannot infer from current branch.")
+            return
+        feature_dir = find_feature_dir(feature_name)
+        if not feature_dir or not feature_dir.exists():
+            print(f"[Orchestrator] Feature not found: {feature_name}")
+            return
+        branch = current_branch()
+        if branch == "main":
+            print("[Orchestrator] Already on main. Nothing to merge.")
+            return
+        if branch.startswith("bugfix/"):
+            commit_type = "fix"
+        else:
+            commit_type = "feat"
+        repo_url = "https://github.com/pannet1/fti-holdings"
+        print(f"[Orchestrator] Staging {feature_dir}...")
+        r1 = subprocess.run(["git", "add", str(feature_dir)], capture_output=True, text=True, cwd=str(REPO_ROOT))
+        if r1.returncode != 0:
+            print(f"[Orchestrator] git add failed: {r1.stderr.strip()}")
+            return
+        msg_body = f"{commit_type}: {feature_name}"
+        print(f"[Orchestrator] Committing: {msg_body}")
+        r2 = subprocess.run(["git", "commit", "-m", msg_body], capture_output=True, text=True, cwd=str(REPO_ROOT))
+        if r2.returncode != 0:
+            print(f"[Orchestrator] git commit failed: {r2.stderr.strip()}")
+            return
+        print(r2.stdout.strip())
+        print(f"[Orchestrator] Pushing {branch}...")
+        r3 = subprocess.run(["git", "push", "origin", branch], capture_output=True, text=True, cwd=str(REPO_ROOT))
+        if r3.returncode != 0:
+            print(f"[Orchestrator] git push failed: {r3.stderr.strip()}")
+            return
+        print(r3.stdout.strip())
+        print(f"[Orchestrator] PR: {repo_url}/pull/new/{branch}")
+        return
+
     if prefix == "deploy":
         print("=" * 60)
         print("Deploy mode: follow DEPLOYMENT.md manually.")
@@ -806,6 +851,7 @@ def parse_args() -> argparse.Namespace:
         print('  implement ./.agents/orchestrator.py implement/ManageCandle')
         print('  modify    ./.agents/orchestrator.py modify/RunRatchetStrategy')
         print('  bugfix    ./.agents/orchestrator.py bugfix/RunRatchetStrategy')
+        print('  merge     ./.agents/orchestrator.py merge/ManageCandle')
         print('  delete    ./.agents/orchestrator.py delete/HelloWorld')
         sys.exit(1)
     return args
