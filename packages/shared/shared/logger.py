@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from toolkit.logger import AsyncLogger
+from toolkit.async_logger import AsyncLogger
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG_FILE = ROOT / "data" / "log.txt"

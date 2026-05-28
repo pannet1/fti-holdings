@@ -1,5 +1,4 @@
 import json
-import logging
 import sys
 import time
 import yaml
@@ -10,6 +9,9 @@ from typing import Any, List
 import pendulum as pdlm
 
 from app.features.state.LoadSettings.Handler import LoadSettingsHandler
+
+from shared.logger import logging_func
+logger = logging_func(__name__)
 from app.features.state.LoadSymbols.Handler import LoadSymbolsHandler
 from app.features.state.TrackRunState.Handler import TrackRunStateHandler
 from app.features.broker.AuthenticateBroker.Handler import AuthenticateBrokerHandler
@@ -23,8 +25,6 @@ from app.features.market.StreamQuotes.Handler import StreamQuotesHandler
 from app.features.market.HistoricQuotes.Handler import HistoricQuotesHandler
 from app.features.market.HistoricQuotes.Schema import HistoricQuotesConfig
 from broker_ai.finvasia.symbols import Symbol as FinvasiaSymbol
-
-logger = logging.getLogger(__name__)
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_ROOT.parent.parent
@@ -101,12 +101,6 @@ def route_signal(
 
 def main() -> None:
     try:
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s %(levelname)s %(message)s",
-            stream=sys.stdout,
-            force=True,
-        )
         logger.info("=== FTI Holdings: Starting ===")
 
         settings = LoadSettingsHandler().execute()
