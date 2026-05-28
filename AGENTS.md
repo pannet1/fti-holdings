@@ -1,6 +1,6 @@
 # AGENTS.md — Agentic Workflow Constitution
 
-**Stack**: Python (FastAPI, SQLite) + Qwik JS | **Paradigm**: Spec-Driven Development + Vertical Slice Architecture
+**Stack**: Python (FastAPI) | **Paradigm**: Spec-Driven Development + Vertical Slice Architecture
 
 ## 1. Agent Hierarchy & Roles
 
@@ -26,11 +26,7 @@ Decision: NEW FEATURE → dispatch Backend, MODIFICATION → dispatch Backend, B
 
 Write-locked to individual feature slices. Read specs, write only to target feature dir, enforce Code Standards (Section 3).
 
-### Frontend Sub-Agent (Reports to Orchestrator)
 
-Write-locked to Qwik feature slices. Read specs, implement components/routes in target dir, enforce Code Standards (Section 3).
-
----
 
 ### QA / Evaluation Agent (Reports to Orchestrator)
 
@@ -50,14 +46,11 @@ Write-locked to Qwik feature slices. Read specs, implement components/routes in 
 
 ### Deploy Agent (Reports to Orchestrator)
 
-**Triggers after human merges the PR.** SSH to server, git pull, restart service, verify via logs.
+**Triggers after `merge/X`.** SSH to server, git pull, restart service, verify via logs.
 
 ---
 
 ## 2. Agentic Pipeline (Spec → Code → Eval)
-
-### Step 0: Branch Isolation (Human)
-Human creates feature branch: `git checkout -b feature/X`. Agents remain blind to version control.
 
 ### Step 1: Spec Definition (Human + Orchestrator)
 Human describes feature → Orchestrator writes structured spec. **Output**: Locked-down acceptance criteria.
@@ -68,8 +61,8 @@ Reads spec, scaffolds Pydantic schemas/tests, implements logic. **Output**: Feat
 ### Step 3: Evaluation Gates (QA Agent)
 Spec compliance check + traceback analysis + edge-case generation. Human executes `uv run pytest`, passes failures to QA Agent via `--error`. Loops to Backend on failure. **Gate passes only when** all checks pass.
 
-### Step 4: PR Lifecycle (Human)
-Human stages (`git add .`), commits (`git commit -m "feat: implement X"`), pushes (`git push origin feature/X`), and opens a Pull Request on GitHub. Upon architectural review, the Human merges the PR into main.
+### Step 4: Merge to Main (Orchestrator)
+Orchestrator runs `merge/X` to push and merge the feature branch directly: `git add → commit → push → checkout main → merge → push main → delete local+remote branch`.
 
 ---
 
@@ -82,7 +75,7 @@ Human stages (`git add .`), commits (`git commit -m "feat: implement X"`), pushe
 | **No pip/poetry/conda** | All deps via `uv add` or `uv sync` | Reject gate |
 | **No `requirements.txt`** | All deps in `pyproject.toml` only; `uv export`-generated `requirements.txt` permitted for deployment only | Reject gate |
 | **Project time library only** | Project-specific rule (see spec) | Reject gate |
-| `logging.getLogger(__name__)` for logging (see Logging Pattern below) | Code review | Reject gate |
+| All `.py` files MUST use `from shared.logger import logging_func` (see Logging Pattern below) | Code review | Reject gate |
 | Zero comments | Code review by Orchestrator | Reject gate |
 | No secrets in git-tracked files | Pre-commit hook + review | Block commit |
 | No emojis in text files | Code review | Reject gate |
@@ -123,8 +116,8 @@ logger = logging_func(__name__)
 
 | DO: | DON'T: |
 |-----|--------|
-| `logger = logging.getLogger(__name__)` | `print("message")` |
-| `logger.info("order placed")` | `logging = Logger(10)` |
+| `from shared.logger import logging_func; logger = logging_func(__name__)` | `print("message")` |
+| `logger.info("order placed")` | `logging.getLogger(__name__)` without shared.logger |
 
 ---
 
@@ -141,10 +134,9 @@ python .agents/orchestrator.py "<human request>"
 3. **Orchestrator** reads relevant specs, decomposes into atomic steps
 4. **Orchestrator** creates task list via Task tool, dispatches to sub-agents
 5. **Backend Agent** implements feature in vertical slice, creates tests
-5b. **Frontend Agent** implements Qwik components/routes, creates tests (if applicable)
 6. **QA Agent** runs evaluation gates, feeds failures back to Backend/Frontend Agent
 7. **Loop** steps 5-6 until all gates pass (max 3 iterations, then escalate to human)
-8. **Orchestrator** commits all work and opens a PR for human review
+8. **Orchestrator** commits all work via `merge/X`
 
 ### Escalation Rules
 - If an agent fails after 3 auto-correction loops → escalate to human
