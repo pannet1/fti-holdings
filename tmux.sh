@@ -23,8 +23,10 @@ else
 	if [[ ! -f .venv/bin/python ]]; then
 		uv venv --python 3.10
 	fi
-	echo "Syncing backend dependencies..."
-	uv sync --directory apps/backend
+	echo "Removing stale per-package lockfiles..."
+	rm -f apps/backend/uv.lock packages/*/uv.lock
+	echo "Syncing dependencies..."
+	uv sync
 	if [ -t 0 ]; then
 		echo "Creating and attaching to session $sess."
 		tmux new-session -s "$sess" -x 120 -y 48 "uv run --directory apps/backend python -m app.main && tmux kill-session -t $sess"
