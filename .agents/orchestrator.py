@@ -204,7 +204,8 @@ SPEC_TEMPLATE = """\
 
 ## Code Standards
 
-All code must use type annotations per PEP 484 (function signatures + module-level variables).
+* All code must use type annotations per PEP 484 (function signatures + module-level variables).
+* All `.py` files must use `from shared.logger import logging_func; logger = logging_func(__name__)` for logging (never bare `logging.getLogger(__name__)`).
 """
 
 DEFAULT_OVERVIEW = "<!-- Orchestrator: describe what this feature does, why it exists. -->"
