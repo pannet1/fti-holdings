@@ -772,8 +772,17 @@ def orchestrate(request: str, prompt_content: str = "", no_controller: bool = Fa
             return
         branch = current_branch()
         if branch == "main":
-            print("[Orchestrator] Already on main. Nothing to merge.")
-            return
+            for br_prefix in ("feature/", "modify/", "bugfix/"):
+                candidate = br_prefix + feature_name
+                if branch_exists(candidate):
+                    branch = candidate
+                    print(f"[Orchestrator] Checking out {branch}...")
+                    subprocess.run(["git", "checkout", branch],
+                                   capture_output=True, cwd=str(REPO_ROOT))
+                    break
+            if branch == "main":
+                print(f"[Orchestrator] No branch found for '{feature_name}'.")
+                return
         if branch.startswith("bugfix/"):
             commit_type = "fix"
         else:
