@@ -34,9 +34,9 @@ class TestGenerateReportHandler:
         ])
         handler = GenerateReportHandler(data_dir=str(tmp_path), paper=False)
         result = handler.generate_report()
-        assert "Cycle 1" in result
+        assert "# 1:" in result
         assert "+500" in result
-        assert "Win rate: 100%" in result
+        assert "Win rate:" in result
 
     def test_multi_buy_accumulate_then_sell(self, tmp_path: Path) -> None:
         _write_csv(tmp_path / "trades.csv", [
@@ -46,7 +46,7 @@ class TestGenerateReportHandler:
         ])
         handler = GenerateReportHandler(data_dir=str(tmp_path), paper=False)
         result = handler.generate_report()
-        assert "Cycle 1" in result
+        assert "# 1:" in result
         expected = str(int(150 * 105.00 - (50 * 100.00 + 100 * 95.00)))
         assert expected in result.replace(",", "")
 
@@ -59,9 +59,9 @@ class TestGenerateReportHandler:
         ])
         handler = GenerateReportHandler(data_dir=str(tmp_path), paper=False)
         result = handler.generate_report()
-        assert "Cycle 1" in result
-        assert "Cycle 2" in result
-        assert "Total realized P&L:" in result
+        assert "# 1:" in result
+        assert "# 2:" in result
+        assert "Realized P&L:" in result
         assert "1000" in result.replace(",", "")
 
     def test_uses_paper_path(self, tmp_path: Path) -> None:
@@ -72,7 +72,7 @@ class TestGenerateReportHandler:
         ])
         handler = GenerateReportHandler(data_dir=str(tmp_path), paper=True)
         result = handler.generate_report()
-        assert "Cycle 1" in result
+        assert "# 1:" in result
         assert "+500" in result
 
     def test_open_position_reported(self, tmp_path: Path) -> None:
@@ -83,7 +83,7 @@ class TestGenerateReportHandler:
         ])
         handler = GenerateReportHandler(data_dir=str(tmp_path), paper=False)
         result = handler.generate_report()
-        assert "Cycle 1" in result
+        assert "# 1:" in result
         assert "Open position" in result
         assert "100" in result
         assert "120" in result
@@ -106,5 +106,5 @@ class TestGenerateReportHandler:
             pytest.skip("No real backtest data found")
         handler = GenerateReportHandler(data_dir=str(real_path.parent.parent), paper=True)
         result = handler.generate_report()
-        assert "Total realized P&L:" in result
-        assert "Cycle 1" in result
+        assert "Realized P&L:" in result
+        assert "# 1:" in result

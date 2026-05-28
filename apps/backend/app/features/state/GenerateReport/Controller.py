@@ -1,8 +1,6 @@
-import logging
-
 from .Handler import GenerateReportHandler
-
-logger = logging.getLogger(__name__)
+from shared.logger import logging_func
+logger = logging_func(__name__)
 
 
 def generate_report(data_dir: str = "data", paper: bool = False) -> str:

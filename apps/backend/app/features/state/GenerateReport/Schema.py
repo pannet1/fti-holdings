@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class CycleReport(BaseModel):
@@ -29,6 +30,19 @@ class ReportSummary(BaseModel):
     first_trade_date: str
     last_trade_date: str
     calendar_days: int
+    sharpe_ratio: Optional[float] = None
+    sortino_ratio: Optional[float] = None
+    max_drawdown_pct: Optional[float] = None
+    max_drawdown_value: Optional[float] = None
+    calmar_ratio: Optional[float] = None
+    profit_factor: Optional[float] = None
+    avg_win_pct: Optional[float] = None
+    avg_loss_pct: Optional[float] = None
+    expectancy: Optional[float] = None
+    total_gross_profit: Optional[float] = None
+    total_gross_loss: Optional[float] = None
+    winning_cycles: Optional[int] = None
+    losing_cycles: Optional[int] = None
 
 
 class TradeReport(BaseModel):
