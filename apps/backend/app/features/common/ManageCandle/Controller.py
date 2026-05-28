@@ -8,12 +8,16 @@ logger = logging.getLogger(__name__)
 
 class ManageCandleController:
 
-    def handle(self, request: Optional[Dict[str, object]] = None) -> Dict[str, object]:
+    def handle(
+        self, request: Optional[Dict[str, object]] = None
+    ) -> Dict[str, object]:
         params = request or {}
         minute = int(params.get("minute", 1))
         start = str(params.get("start", "09:00"))
         stop = str(params.get("stop", "15:30"))
-        handler = ManageCandleHandler(minute=minute, start=start, stop=stop)
+        handler = ManageCandleHandler(
+            minute=minute, start=start, stop=stop
+        )
         event = handler.check_close()
         logger.info("Candle close event: %s", event)
         return {
