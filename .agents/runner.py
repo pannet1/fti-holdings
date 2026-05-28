@@ -27,6 +27,8 @@ import re
 import string
 import subprocess
 import sys
+import threading
+import time
 import urllib.request
 import uuid
 from pathlib import Path
@@ -94,8 +96,20 @@ def _zen_chat(prompt: str) -> str | None:
         req = urllib.request.Request(ZEN_URL, data=data, headers=headers, method="POST")
         try:
             print(f"[Runner] Sending {len(payload['messages'][0]['content'])} chars to model '{model}'...", file=sys.stderr)
-            with urllib.request.urlopen(req, timeout=300) as resp:
-                body = json.loads(resp.read())
+            done = False
+            def _tick():
+                while not done:
+                    time.sleep(10)
+                    sys.stderr.write(".")
+                    sys.stderr.flush()
+            ticker = threading.Thread(target=_tick, daemon=True)
+            ticker.start()
+            try:
+                with urllib.request.urlopen(req, timeout=300) as resp:
+                    body = json.loads(resp.read())
+            finally:
+                done = True
+            print(file=sys.stderr)
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 print(f"[Runner] Model '{model}' unavailable (free tier ended). Trying next...", file=sys.stderr)
@@ -623,13 +637,16 @@ def extract_json_blocks(text: str) -> dict[str, str]:
 
 
 def run_pytest(test_path: Path) -> tuple[bool, str]:
-    result = subprocess.run(
+    with subprocess.Popen(
         ["uv", "run", "pytest", str(test_path), "--tb=long", "-v"],
-        capture_output=True, text=True, cwd=str(REPO_ROOT / "apps" / "backend"),
-        timeout=120,
-    )
-    passed = result.returncode == 0
-    output = result.stdout + "\n" + result.stderr
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, cwd=str(REPO_ROOT / "apps" / "backend"),
+    ) as proc:
+        output = ""
+        for line in proc.stdout:
+            print(line, end="", file=sys.stderr)
+            output += line
+    passed = proc.returncode == 0
     return passed, output
 
 
@@ -742,10 +759,11 @@ def auto_backend(target: Path, prompt: str) -> bool:
         print(f"[Runner] No Tests.py found at {test_file}, skipping auto-QA.")
         return True
 
+    print(f"[Runner] Running tests for {target.name}...")
     passed, output = run_pytest(test_file)
     if passed:
         print(f"[Runner] All Tests Passed.")
-        print(f"[Runner] Running full regression suite...")
+        print(f"[Runner] Running full regression suite across all features...")
         regr_passed, regr_output = run_pytest(REPO_ROOT / "apps" / "backend" / "app" / "features")
         if regr_passed:
             print(f"[Runner] Regression suite: all pass.")
