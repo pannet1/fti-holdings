@@ -154,8 +154,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
-        quotes = {"ITBEES": 245.50}
-        inst._candle.force_index(0)
+        quotes = {"ITBEES": 245.50, "_time": "2026-05-22 09:30:00"}
         signal = inst.run(trades=None, quotes=quotes, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
@@ -177,8 +176,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
-        inst._candle.force_index(0)
-        signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        signal = inst.run(trades=None, quotes={"ITBEES": 250.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
         assert signal["quantity"] == 33
@@ -201,14 +199,14 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
-        inst._candle.force_index(0)
-        signal = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        signal = inst.run(trades=None, quotes={"ITBEES": 250.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal is not None
         assert signal["action"] == "BUY"
         assert signal["quantity"] == 99
 
-    def test_candle_timing_skips_second_call(self):
+    def test_buys_once_via_time_then_gated_by_candle_close(self, tmp_path):
         inst = Rachet(
+            data_dir=str(tmp_path),
             strategy="ratchet",
             tradingsymbol="ITBEES",
             exchange="BSE",
@@ -219,10 +217,16 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
-        inst._candle.force_index(0)
-        signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal1 is not None
-        signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
+        assert signal1["action"] == "BUY"
+        holdings_csv = tmp_path / "holdings.csv"
+        holdings_csv.write_text(
+            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
+            "2026-05-22 09:30,BSE,ITBEES,BUY,250.00,33,ratchet\n"
+        )
+        inst._candle.force_index(0)
+        signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal2 is None
 
     def test_refreshes_holdings_between_candles(self, tmp_path):
@@ -238,8 +242,7 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
-        inst._candle.force_index(0)
-        signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00}, positions=None)
+        signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal1 is not None
         holdings_csv = tmp_path / "holdings.csv"
         holdings_csv.write_text(
@@ -356,6 +359,9 @@ class TestRachetStrategy:
             perc=0.05,
             candle=_candle_from_settings(),
         )
-        inst._last_sell_date = "2026-05-22"
+        inst._candle.force_index(0)
+        close_event = inst._candle.check_close()
+        assert close_event is not None
+        inst._last_sell_date = close_event["close_time"][:10]
         signal = inst.run(trades=None, quotes={"ITBEES": 232.00}, positions=None)
         assert signal is None

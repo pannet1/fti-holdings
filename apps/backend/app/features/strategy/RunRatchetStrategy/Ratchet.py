@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 class Rachet:
     def __init__(self, data_dir: str = "data", **O_SETG: Any) -> None:
         self.strategy = O_SETG["strategy"]
-        self.stop_time = O_SETG["stop_time"]
         self._data_dir = data_dir
         self._paper = bool(O_SETG.get("paper", 0))
         self._removable = False
@@ -22,10 +21,12 @@ class Rachet:
         self._x = O_SETG.get("quantity", 33)
         self._multiplier: List[int] = O_SETG.get("multiplier", [1])
         self._perc: float = O_SETG.get("perc", 0.05)
+        self._start_time = O_SETG.get("start_time", "09:00")
+        self._stop_time = O_SETG.get("stop_time", "15:30")
         self._candle = ManageCandleHandler(
             minute=O_SETG["candle"],
-            start=O_SETG.get("start_time", "09:00"),
-            stop=O_SETG.get("stop_time", "15:30"),
+            start=self._start_time,
+            stop=self._stop_time,
         )
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
@@ -87,28 +88,38 @@ class Rachet:
         if not cmp:
             return None
 
-        close_event = self._candle.check_close()
-        if close_event is None:
-            return None
-        candle_time = close_event["close_time"]
-        trade_date = candle_time[:10]
-
         self._read_holdings(self._holdings_path())
+
+        trade_time: str | None = None
+        if not self._holdings:
+            now_raw = quotes.get("_time")
+            if now_raw:
+                trade_time = str(now_raw)
+        if trade_time is None:
+            close_event = self._candle.check_close()
+            if close_event is not None:
+                trade_time = close_event["close_time"]
+        if trade_time is None:
+            return None
+
+        if trade_time[11:16] < self._start_time or trade_time[11:16] > self._stop_time:
+            return None
+
+        trade_date = trade_time[:10]
 
         if not self._holdings:
             if trade_date == self._last_sell_date:
                 return None
             qty = self._last_buy_qty
             self._x = qty
-            mult = 1
             return {
                 "action": "BUY",
                 "tradingsymbol": self._tradingsymbol,
                 "exchange": self._exchange,
                 "quantity": qty,
                 "price": cmp,
-                "time": candle_time,
-                "multiplier": mult,
+                "time": trade_time,
+                "multiplier": 1,
             }
 
         sell_target = self._avg_price * (1.0 + self._perc)
@@ -120,7 +131,7 @@ class Rachet:
                 "exchange": self._exchange,
                 "quantity": self._total_qty,
                 "price": cmp,
-                "time": candle_time,
+                "time": trade_time,
                 "multiplier": 0,
             }
 
@@ -147,7 +158,7 @@ class Rachet:
                 "exchange": self._exchange,
                 "quantity": qty,
                 "price": cmp,
-                "time": candle_time,
+                "time": trade_time,
                 "multiplier": self._multiplier[next_idx],
             }
 

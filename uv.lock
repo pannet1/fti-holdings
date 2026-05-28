@@ -40,7 +40,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "broker-ai", git = "https://github.com/pannet1/broker-ai?rev=e8dfccfd29cfb1677ff51bf2578fc7b3672d3a02" },
+    { name = "broker-ai", git = "https://github.com/pannet1/broker-ai?rev=1c46ace7bee8e6e621510f9dd7ca44880f426e71" },
     { name = "pandas", specifier = ">=2" },
     { name = "pendulum", specifier = ">=3" },
     { name = "pydantic", specifier = ">=2.13.4" },
@@ -59,12 +59,12 @@ dev = [
 [[package]]
 name = "broker-ai"
 version = "1.0.0"
-source = { git = "https://github.com/pannet1/broker-ai?rev=e8dfccfd29cfb1677ff51bf2578fc7b3672d3a02#e8dfccfd29cfb1677ff51bf2578fc7b3672d3a02" }
+source = { git = "https://github.com/pannet1/broker-ai?rev=1c46ace7bee8e6e621510f9dd7ca44880f426e71#1c46ace7bee8e6e621510f9dd7ca44880f426e71" }
 dependencies = [
     { name = "delta-rest-client" },
-    { name = "norenrestapioauth" },
     { name = "pandas" },
     { name = "pendulum" },
+    { name = "pyotp" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "websocket-client" },
@@ -150,20 +150,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
-]
-
-[[package]]
-name = "norenrestapioauth"
-version = "0.0.38"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pandas" },
-    { name = "pyyaml" },
-    { name = "requests" },
-    { name = "websocket-client" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/01/081d23168ed6467cda89c03003a227ae4893484d726489a662c61b636da1/norenrestapioauth-0.0.38-py2.py3-none-any.whl", hash = "sha256:17a748d2488da5ca175a210b7ffee1cb82b23f5cc1d1f5fb96f1aedd2c44476c", size = 23642, upload-time = "2026-04-13T12:35:17.174Z" },
 ]
 
 [[package]]
