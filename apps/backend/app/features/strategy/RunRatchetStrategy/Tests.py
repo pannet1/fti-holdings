@@ -220,11 +220,7 @@ class TestRachetStrategy:
         signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal1 is not None
         assert signal1["action"] == "BUY"
-        holdings_csv = tmp_path / "holdings.csv"
-        holdings_csv.write_text(
-            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
-            "2026-05-22 09:30,BSE,ITBEES,BUY,250.00,33,ratchet\n"
-        )
+        inst.confirm_signal(signal1)
         inst._candle.force_index(0)
         signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal2 is None
@@ -244,11 +240,7 @@ class TestRachetStrategy:
         )
         signal1 = inst.run(trades=None, quotes={"ITBEES": 250.00, "_time": "2026-05-22 09:30:00"}, positions=None)
         assert signal1 is not None
-        holdings_csv = tmp_path / "holdings.csv"
-        holdings_csv.write_text(
-            "datetime,exchange,tradingsymbol,side,avg_price,quantity,strategy\n"
-            "2026-05-22 09:30,BSE,ITBEES,BUY,250.00,33,ratchet\n"
-        )
+        inst.confirm_signal(signal1)
         inst._candle.force_index(1)
         signal2 = inst.run(trades=None, quotes={"ITBEES": 251.00}, positions=None)
         assert signal2 is None

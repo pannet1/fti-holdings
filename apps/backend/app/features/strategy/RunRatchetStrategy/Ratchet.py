@@ -39,6 +39,7 @@ class Rachet:
         self._last_sell_date: str | None = None
         self._win_qty: int = self._x
         self._loss_qty: int = self._x
+        self._load_last_sell_date()
         holdings_file = self._holdings_path()
         if holdings_file.exists():
             self._read_holdings(holdings_file)
@@ -57,6 +58,21 @@ class Rachet:
                 last_idx = self._multiplier.index(closest)
                 self._win_qty = self._x * self._multiplier[max(0, last_idx - 1)]
                 self._loss_qty = self._x * self._multiplier[min(len(self._multiplier) - 1, last_idx + 1)]
+
+    def _load_last_sell_date(self) -> None:
+        trades_file = self._trades_path()
+        if not trades_file.exists():
+            return
+        today = pdlm.now().format("YYYY-MM-DD")
+        with open(trades_file) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("tradingsymbol") == self._tradingsymbol and row.get("side") == "SELL":
+                    row_date = row.get("datetime", "")[:10]
+                    if row_date == today:
+                        self._last_sell_date = today
+                        self._removable = True
+                        return
 
     def _holdings_path(self) -> Path:
         base = Path(self._data_dir)
@@ -121,6 +137,15 @@ class Rachet:
         self._total_qty = 0
         self._avg_price = 0.0
 
+    def confirm_signal(self, signal: dict) -> None:
+        if signal["action"] == "BUY":
+            self._update_holdings_buy(int(signal["quantity"]), float(signal["price"]))
+        elif signal["action"] == "SELL":
+            trade_date = signal.get("time", "")[:10]
+            self._last_sell_date = trade_date
+            self._removable = True
+            self._update_holdings_sell()
+
     def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
         cmp = quotes.get(self._tradingsymbol)
         if not cmp:
@@ -140,7 +165,6 @@ class Rachet:
                 return None
             qty = self._last_buy_qty
             self._x = qty
-            self._update_holdings_buy(qty, cmp)
             return {
                 "action": "BUY",
                 "tradingsymbol": self._tradingsymbol,
@@ -153,9 +177,7 @@ class Rachet:
 
         sell_target = self._avg_price * (1.0 + self._perc)
         if cmp > sell_target:
-            self._last_sell_date = trade_date
             total_qty = self._total_qty
-            self._update_holdings_sell()
             return {
                 "action": "SELL",
                 "tradingsymbol": self._tradingsymbol,
@@ -176,7 +198,6 @@ class Rachet:
             if cmp >= buy_upper:
                 qty = self._x
                 self._last_buy_qty = qty
-                self._update_holdings_buy(qty, cmp)
                 return {
                     "action": "BUY",
                     "tradingsymbol": self._tradingsymbol,
@@ -193,7 +214,6 @@ class Rachet:
             next_idx = min(len(self._multiplier) - 1, current_idx + 1)
             qty = self._x * self._multiplier[next_idx]
             self._last_buy_qty = qty
-            self._update_holdings_buy(qty, cmp)
             return {
                 "action": "BUY",
                 "tradingsymbol": self._tradingsymbol,

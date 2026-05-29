@@ -40,7 +40,7 @@ def load_auth_credentials(auth_file: Path, broker: str) -> dict:
     return raw[broker]
 
 
-def build_strategies(tracker: Any, global_settings: dict) -> List[Rachet]:
+def build_strategies(tracker: Any, global_settings: dict, broker_session: Any = None) -> List[Rachet]:
     instances: List[Rachet] = []
     while True:
         next_run = tracker.execute()
@@ -58,6 +58,25 @@ def build_strategies(tracker: Any, global_settings: dict) -> List[Rachet]:
             cfg["tradingsymbol"] = cfg["symbol"]
         try:
             strat = Rachet(data_dir=str(DATA_DIR), **cfg)
+            if strat._removable:
+                logger.info(f"Skipping {strat.strategy} for {strat._tradingsymbol} — already sold today")
+                continue
+            if broker_session and hasattr(broker_session, "holdings"):
+                holdings_api = broker_session.holdings
+                if holdings_api:
+                    broker_qty = 0
+                    for h in holdings_api:
+                        info = h.get("instrument_info", [])
+                        if isinstance(info, list):
+                            for item in info:
+                                if item.get("tsym") == strat._tradingsymbol:
+                                    broker_qty = int(h.get("npoadqty", 0))
+                                    break
+                    rows = TrackHoldingsHandler(data_dir=str(DATA_DIR), paper=bool(cfg.get("paper", 0))).read_by_symbol(strat._tradingsymbol)
+                    csv_qty = sum(r.quantity for r in rows) if rows else 0
+                    if csv_qty != broker_qty:
+                        logger.info(f"holdings mismatch for {strat._tradingsymbol}: csv={csv_qty} broker={broker_qty}")
+                        continue
             instances.append(strat)
             logger.info(f"Loaded strategy {strat.strategy} for {strat._tradingsymbol}")
         except Exception as e:
@@ -71,6 +90,7 @@ def route_signal(
     broker_session: Any,
     holdings_tracker: TrackHoldingsHandler,
     trades_journal: JournalTradesHandler,
+    strategy: Rachet,
 ) -> None:
     result = order_manager.execute(
         tradingsymbol=signal["tradingsymbol"],
@@ -81,6 +101,7 @@ def route_signal(
         broker_session=broker_session,
     )
     if result.get("status") == "ok":
+        strategy.confirm_signal(signal)
         ts = signal.get("time") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         row = HoldingsRow(
             datetime=ts,
@@ -162,7 +183,7 @@ def main() -> None:
         run_file = DATA_DIR / "run.txt"
         if run_file.exists():
             run_file.unlink()
-        strategies = build_strategies(tracker, settings["global"])
+        strategies = build_strategies(tracker, settings["global"], broker_session)
         logger.info(f"Active strategies: {len(strategies)}")
 
         if strategies:
@@ -311,6 +332,8 @@ def main() -> None:
                     last_tick = backtest_tick >= len(stream.candles)
 
                 for strategy in strategies:
+                    if strategy._removable:
+                        continue
                     signal = runner.execute_tick(strategy=strategy, quotes=quotes)
                     if signal is not None:
                         logger.info(
@@ -322,6 +345,7 @@ def main() -> None:
                             broker_session,
                             holdings_tracker,
                             trades_journal,
+                            strategy,
                         )
 
                 if is_backtest and last_tick:
