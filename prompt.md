@@ -1,3 +1,5 @@
-ManageCandle should use Strategy start_time and stop_time for
-candle timeframe calculation. This also applies to the stop time
-or candle close time whichever happens earlier, rule
+the code should start running only after the user has provided
+settings start is elapsed.
+
+similarly, it should kill the tmux session, beyond the stop time
+

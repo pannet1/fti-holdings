@@ -1,7 +1,7 @@
 log_level: DEBUG
 log_show: true
 start: "09:15"
-stop: "23:55"
+stop: "15:31"
 candle: 240
 backtest: 0
 paper: 0
