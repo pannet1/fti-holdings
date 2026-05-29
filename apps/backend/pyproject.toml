@@ -25,5 +25,5 @@ dev = [
 
 [tool.uv.sources]
 shared = { workspace = true }
-toolkit = { git = "https://github.com/pannet1/toolkit" }
+toolkit = { git = "https://github.com/pannet1/toolkit", rev = "e66bc1f" }
 broker-ai = { git = "https://github.com/pannet1/broker-ai", rev = "1c46ace7bee8e6e621510f9dd7ca44880f426e71" }

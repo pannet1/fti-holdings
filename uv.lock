@@ -47,7 +47,7 @@ requires-dist = [
     { name = "pyotp", specifier = ">=2.9.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "shared", editable = "packages/shared" },
-    { name = "toolkit", git = "https://github.com/pannet1/toolkit" },
+    { name = "toolkit", git = "https://github.com/pannet1/toolkit?rev=e66bc1f" },
 ]
 
 [package.metadata.requires-dev]
@@ -382,7 +382,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "toolkit", git = "https://github.com/pannet1/toolkit" }]
+requires-dist = [{ name = "toolkit", git = "https://github.com/pannet1/toolkit?rev=e66bc1f" }]
 
 [[package]]
 name = "six"
@@ -405,7 +405,7 @@ wheels = [
 [[package]]
 name = "toolkit"
 version = "0.0.0"
-source = { git = "https://github.com/pannet1/toolkit#f12a3ce526ea2d330f412ccfe76cfbe8c13e0ff2" }
+source = { git = "https://github.com/pannet1/toolkit?rev=e66bc1f#e66bc1f0e1ee778284aa84a4e1d85ba66a0b41c2" }
 
 [[package]]
 name = "typing-extensions"

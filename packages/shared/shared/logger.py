@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from toolkit.async_logger import AsyncLogger
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
 LOG_FILE = ROOT / "data" / "log.txt"
 SETTINGS_FILE = ROOT / "data" / "settings.yml"
 
@@ -24,7 +24,7 @@ def async_logger():
     if log_show:
         manager = AsyncLogger(level)
     else:
-        manager = AsyncLogger(level, str(LOG_FILE))
+        manager = AsyncLogger(level, str(LOG_FILE), use_journal=False, show=False)
 
     manager.start()
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
