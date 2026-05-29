@@ -1,22 +1,23 @@
-import logging
 from typing import Dict, Optional
 
-from .Handler import ManageCandleHandler
+import pendulum as pdlm
 
-logger = logging.getLogger(__name__)
+from .Handler import ManageCandleHandler
+from .Schema import ManageCandleSchema
+from shared.logger import logging_func
+
+logger = logging_func(__name__)
 
 
 class ManageCandleController:
 
-    def handle(
-        self, request: Optional[Dict[str, object]] = None
-    ) -> Dict[str, object]:
+    def handle(self, request: Optional[Dict[str, object]] = None) -> Dict[str, object]:
         params = request or {}
-        minute = int(params.get("minute", 1))
-        start = str(params.get("start", "09:00"))
-        stop = str(params.get("stop", "15:30"))
+        schema = ManageCandleSchema.model_validate(params)
+        start_time = pdlm.parse(schema.start_time).in_tz("Asia/Kolkata")
+        stop_time = pdlm.parse(schema.stop_time).in_tz("Asia/Kolkata")
         handler = ManageCandleHandler(
-            minute=minute, start=start, stop=stop
+            start_time=start_time, stop_time=stop_time, minute=schema.minute
         )
         event = handler.check_close()
         logger.info("Candle close event: %s", event)

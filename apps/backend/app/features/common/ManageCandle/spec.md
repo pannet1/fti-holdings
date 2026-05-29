@@ -11,3 +11,12 @@ has closed and the strategy can evaluate.
 - PEP 484 type annotations on all function signatures
 - Zero comments in production code
 - Use `logging.getLogger(__name__)` for logging
+
+## Modification
+
+ManageCandle should use Strategy start_time and stop_time for
+candle timeframe calculation. This also applies to the stop time
+or candle close time whichever happens earlier, rule
+
+### Constraints
+* <!-- added by modification -->

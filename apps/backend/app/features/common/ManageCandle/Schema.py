@@ -5,6 +5,6 @@ from pydantic import BaseModel
 
 class ManageCandleSchema(BaseModel):
     minute: int = 1
-    start: str = "09:00"
-    stop: str = "15:30"
+    start_time: str
+    stop_time: str
     close_times: List[str] = []

@@ -1,25 +1,17 @@
-import logging
 from typing import Any, Dict, List, Optional
 
 import pendulum as pdlm
+from shared.logger import logging_func
 
-logger = logging.getLogger(__name__)
+logger = logging_func(__name__)
 
 
 class ManageCandleHandler:
 
-    def __init__(
-        self, minute: int = 1, start: str = "09:00", stop: str = "15:30"
-    ) -> None:
+    def __init__(self, start_time: pdlm.DateTime, stop_time: pdlm.DateTime, minute: int = 1) -> None:
         self._minute = minute
-        parts_s = start.split(":")
-        parts_e = stop.split(":")
-        self._open = pdlm.today("Asia/Kolkata").at(
-            int(parts_s[0]), int(parts_s[1]), 0
-        )
-        self._close = pdlm.today("Asia/Kolkata").at(
-            int(parts_e[0]), int(parts_e[1]), 0
-        )
+        self._open = start_time
+        self._close = stop_time
         self._close_times: List[pdlm.DateTime] = self._generate()
         self._last_announced_idx: int = -1
 
@@ -41,13 +33,9 @@ class ManageCandleHandler:
         if idx < 0 or idx >= len(self._close_times):
             return False
         if idx == 0:
-            duration = (
-                self._close_times[0] - self._open
-            ).in_minutes()
+            duration = (self._close_times[0] - self._open).in_minutes()
         else:
-            duration = (
-                self._close_times[idx] - self._close_times[idx - 1]
-            ).in_minutes()
+            duration = (self._close_times[idx] - self._close_times[idx - 1]).in_minutes()
         return duration < self._minute
 
     def force_index(self, idx: int) -> None:
@@ -75,9 +63,7 @@ class ManageCandleHandler:
             close_time = self._close_times[curr]
             is_truncated = self._is_truncated(curr)
         else:
-            close_time = self._open.add(
-                minutes=self._minute * (curr + 1)
-            )
+            close_time = self._open.add(minutes=self._minute * (curr + 1))
             is_truncated = False
         return {
             "index": curr,
