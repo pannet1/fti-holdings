@@ -265,11 +265,7 @@ def main() -> None:
 
         backtest_tick = 0
         last_tick = False
-        status_interval = 60
-        last_status = time.monotonic()
         last_loop = time.monotonic()
-        total_loops = 0
-        total_loop_time = 0.0
         while True:
             try:
                 quotes = (
@@ -279,19 +275,14 @@ def main() -> None:
                 )
 
                 now = time.monotonic()
-                total_loops += 1
-                total_loop_time += now - last_loop
+                loop_ms = (now - last_loop) * 1000
                 last_loop = now
-                if now - last_status >= status_interval:
-                    avg_loop_ms = (total_loop_time / total_loops) * 1000
-                    for s in strategies:
-                        ltp = quotes.get(s._tradingsymbol, 0)
-                        avg = s._avg_price
-                        target = avg * (1.0 + s._perc) if avg else 0
-                        line = f"{s._tradingsymbol} | avg: {avg:.2f} | +5% target: {target:.2f} | ltp: {ltp} | loop: {avg_loop_ms:.1f}ms"
-                        print(line, flush=True)
-                    last_status = now
-                    total_loops = 0
+                for s in strategies:
+                    ltp = quotes.get(s._tradingsymbol, 0)
+                    avg = s._avg_price
+                    target = avg * (1.0 + s._perc) if avg else 0
+                    line = f"{s._tradingsymbol} | avg: {avg:.2f} | +5% target: {target:.2f} | ltp: {ltp} | loop: {loop_ms:.0f}ms"
+                    print(line, flush=True)
                     total_loop_time = 0.0
 
                 if is_backtest and stream:
