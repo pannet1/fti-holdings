@@ -1,13 +1,13 @@
 import csv
-import logging
 from pathlib import Path
 from typing import Any, List, Optional
 
 import pendulum as pdlm
 from app.features.common.ManageCandle.Handler import ManageCandleHandler
 from app.features.state.TrackHoldings.Schema import HoldingsRow
+from shared.logger import logging_func
 
-logger = logging.getLogger(__name__)
+logger = logging_func(__name__)
 
 
 class Rachet:
@@ -84,13 +84,7 @@ class Rachet:
             self._total_qty = sum(h.quantity for h in self._holdings)
             self._avg_price = total_value / self._total_qty if self._total_qty > 0 else 0.0
 
-    def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
-        cmp = quotes.get(self._tradingsymbol)
-        if not cmp:
-            return None
-
-        self._read_holdings(self._holdings_path())
-
+    def _now_str(self, quotes: dict) -> str | None:
         now_raw = quotes.get("_time")
         now_str: str | None = str(now_raw) if now_raw else None
         if now_str is None:
@@ -98,12 +92,41 @@ class Rachet:
             if close_event is None:
                 return None
             now_str = close_event["close_time"]
-
         try:
             dt = pdlm.from_format(now_str, "YYYY-MM-DD HH:mm:ss")
         except ValueError:
             dt = pdlm.from_format(now_str, "DD-MM-YYYY HH:mm:ss")
-        now_str = dt.format("YYYY-MM-DD HH:mm:ss")
+        return dt.format("YYYY-MM-DD HH:mm:ss")
+
+    def _update_holdings_buy(self, qty: int, price: float) -> None:
+        row = HoldingsRow(
+            datetime="",
+            exchange=self._exchange,
+            tradingsymbol=self._tradingsymbol,
+            side="BUY",
+            avg_price=price,
+            quantity=qty,
+            strategy="ratchet",
+            multiplier=1,
+        )
+        self._holdings.append(row)
+        self._total_qty += qty
+        total_value = sum(h.avg_price * h.quantity for h in self._holdings)
+        self._avg_price = total_value / self._total_qty if self._total_qty > 0 else 0.0
+
+    def _update_holdings_sell(self) -> None:
+        self._holdings.clear()
+        self._total_qty = 0
+        self._avg_price = 0.0
+
+    def run(self, trades: Any, quotes: dict, positions: Any) -> Optional[dict]:
+        cmp = quotes.get(self._tradingsymbol)
+        if not cmp:
+            return None
+
+        now_str = self._now_str(quotes)
+        if now_str is None:
+            return None
 
         if now_str[11:16] < self._start_time or now_str[11:16] > self._stop_time:
             return None
@@ -115,6 +138,7 @@ class Rachet:
                 return None
             qty = self._last_buy_qty
             self._x = qty
+            self._update_holdings_buy(qty, cmp)
             return {
                 "action": "BUY",
                 "tradingsymbol": self._tradingsymbol,
@@ -128,11 +152,13 @@ class Rachet:
         sell_target = self._avg_price * (1.0 + self._perc)
         if cmp > sell_target:
             self._last_sell_date = trade_date
+            total_qty = self._total_qty
+            self._update_holdings_sell()
             return {
                 "action": "SELL",
                 "tradingsymbol": self._tradingsymbol,
                 "exchange": self._exchange,
-                "quantity": self._total_qty,
+                "quantity": total_qty,
                 "price": cmp,
                 "time": now_str,
                 "multiplier": 0,
@@ -148,6 +174,7 @@ class Rachet:
             if cmp >= buy_upper:
                 qty = self._x
                 self._last_buy_qty = qty
+                self._update_holdings_buy(qty, cmp)
                 return {
                     "action": "BUY",
                     "tradingsymbol": self._tradingsymbol,
@@ -164,6 +191,7 @@ class Rachet:
             next_idx = min(len(self._multiplier) - 1, current_idx + 1)
             qty = self._x * self._multiplier[next_idx]
             self._last_buy_qty = qty
+            self._update_holdings_buy(qty, cmp)
             return {
                 "action": "BUY",
                 "tradingsymbol": self._tradingsymbol,

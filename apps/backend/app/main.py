@@ -11,6 +11,7 @@ import pendulum as pdlm
 from app.features.state.LoadSettings.Handler import LoadSettingsHandler
 
 from shared.logger import logging_func
+
 logger = logging_func(__name__)
 from app.features.state.LoadSymbols.Handler import LoadSymbolsHandler
 from app.features.state.TrackRunState.Handler import TrackRunStateHandler
@@ -46,7 +47,9 @@ def build_strategies(tracker: Any, global_settings: dict) -> List[Rachet]:
         if next_run["status"] == "empty":
             break
         cfg = dict(next_run["settings"])
-        candidates = [v for v in cfg.values() if isinstance(v, dict) and "strategy" in v]
+        candidates = [
+            v for v in cfg.values() if isinstance(v, dict) and "strategy" in v
+        ]
         if candidates:
             cfg = dict(candidates[0])
         cfg.setdefault("candle", global_settings["candle"])
@@ -136,15 +139,23 @@ def main() -> None:
             logger.error("backtest=1 requires paper=1 to prevent polluting real data/.")
             sys.exit(1)
         if is_backtest:
+
             class MockOrderHandler:
                 def execute(self, **kwargs: Any) -> dict:
-                    logger.info(f"Backtest order: {kwargs.get('transaction_type')} {kwargs.get('quantity')} {kwargs.get('tradingsymbol')} @ {kwargs.get('price')}")
+                    logger.info(
+                        f"Backtest order: {kwargs.get('transaction_type')} {kwargs.get('quantity')} {kwargs.get('tradingsymbol')} @ {kwargs.get('price')}"
+                    )
                     return {"status": "ok", "order_id": "backtest"}
+
             order_mgr = MockOrderHandler()
         else:
             order_mgr = ManageOrderHandler()
-        holdings_tracker = TrackHoldingsHandler(data_dir=str(DATA_DIR), paper=bool(is_paper))
-        trades_journal = JournalTradesHandler(data_dir=str(DATA_DIR), paper=bool(is_paper))
+        holdings_tracker = TrackHoldingsHandler(
+            data_dir=str(DATA_DIR), paper=bool(is_paper)
+        )
+        trades_journal = JournalTradesHandler(
+            data_dir=str(DATA_DIR), paper=bool(is_paper)
+        )
         holdings_tracker.ensure()
         trades_journal.ensure()
 
@@ -159,12 +170,19 @@ def main() -> None:
                 strat = strategies[0]
                 token = strat._token
                 if not token:
-                    logger.info(f"Resolving token for {strat._tradingsymbol} via broker-ai...")
-                    sym = FinvasiaSymbol(exchange=strat._exchange, symbol=strat._tradingsymbol)
+                    logger.info(
+                        f"Resolving token for {strat._tradingsymbol} via broker-ai..."
+                    )
+                    sym = FinvasiaSymbol(
+                        exchange=strat._exchange, symbol=strat._tradingsymbol
+                    )
                     token = sym.find("token")
 
                 if token:
-                    def batch_fetch_history(exch: str, tkn: str, fm: str, to: str, tf: int) -> Any:
+
+                    def batch_fetch_history(
+                        exch: str, tkn: str, fm: str, to: str, tf: int
+                    ) -> Any:
                         start = pdlm.from_format(fm, "YYYY-MM-DD")
                         end = pdlm.from_format(to, "YYYY-MM-DD")
                         all_data: list = []
@@ -172,7 +190,8 @@ def main() -> None:
                         while current > start:
                             batch_start = max(current.subtract(months=1), start)
                             data = broker_session.historical(
-                                exch, tkn,
+                                exch,
+                                tkn,
                                 batch_start.int_timestamp,
                                 current.int_timestamp,
                                 tf,
@@ -189,13 +208,16 @@ def main() -> None:
                             if t not in seen:
                                 seen.add(t)
                                 deduped.append(d)
-                        return [{
-                            "time": d.get("time", ""),
-                            "open": float(d.get("into", 0)),
-                            "high": float(d.get("inth", 0)),
-                            "low": float(d.get("intl", 0)),
-                            "close": float(d.get("intc", 0)),
-                        } for d in deduped]
+                        return [
+                            {
+                                "time": d.get("time", ""),
+                                "open": float(d.get("into", 0)),
+                                "high": float(d.get("inth", 0)),
+                                "low": float(d.get("intl", 0)),
+                                "close": float(d.get("intc", 0)),
+                            }
+                            for d in deduped
+                        ]
 
                     config = HistoricQuotesConfig(
                         symbol=str(token),
@@ -205,20 +227,28 @@ def main() -> None:
                         start_date=pdlm.now().subtract(days=1826).date(),
                         end_date=pdlm.now().date(),
                     )
-                    stream = HistoricQuotesHandler(config=config, fetch_history=batch_fetch_history)
+                    stream = HistoricQuotesHandler(
+                        config=config, fetch_history=batch_fetch_history
+                    )
                     stream.start()
-                    logger.info(f"Backtest mode: loaded {len(stream.candles)} candles for {strat._tradingsymbol}")
+                    logger.info(
+                        f"Backtest mode: loaded {len(stream.candles)} candles for {strat._tradingsymbol}"
+                    )
                 else:
                     logger.error(f"Could not resolve token for {strat._tradingsymbol}")
                     stream = None
             else:
                 for strat in strategies:
                     if not strat._token:
-                        sym = FinvasiaSymbol(exchange=strat._exchange, symbol=strat._tradingsymbol)
+                        sym = FinvasiaSymbol(
+                            exchange=strat._exchange, symbol=strat._tradingsymbol
+                        )
                         strat._token = sym.find("token")
                 tokens = [f"{s._exchange}|{s._token}" for s in strategies if s._token]
                 symbol_map = {
-                    s._tradingsymbol: f"{s._exchange}|{s._token}" for s in strategies if s._token
+                    s._tradingsymbol: f"{s._exchange}|{s._token}"
+                    for s in strategies
+                    if s._token
                 }
                 stream = StreamQuotesHandler(
                     broker_session=broker_session,
@@ -239,7 +269,11 @@ def main() -> None:
         last_status = time.monotonic()
         while True:
             try:
-                quotes = stream.get_quotes([s._tradingsymbol for s in strategies]) if stream else {}
+                quotes = (
+                    stream.get_quotes([s._tradingsymbol for s in strategies])
+                    if stream
+                    else {}
+                )
 
                 now = time.monotonic()
                 if now - last_status >= status_interval:
@@ -274,11 +308,14 @@ def main() -> None:
                         )
 
                 if is_backtest and last_tick:
-                    logger.info(f"Backtest complete: {len(stream.candles)} candles processed")
+                    logger.info(
+                        f"Backtest complete: {len(stream.candles)} candles processed"
+                    )
                     ltp_data = {
                         "timestamp": quotes.get("_time", ""),
                         "prices": {
-                            s._tradingsymbol: quotes.get(s._tradingsymbol) for s in strategies
+                            s._tradingsymbol: quotes.get(s._tradingsymbol)
+                            for s in strategies
                         },
                     }
                     stream_dir = DATA_DIR / "paper" if is_paper else DATA_DIR
@@ -287,7 +324,7 @@ def main() -> None:
                     break
 
                 if not is_backtest:
-                    time.sleep(1)
+                    time.sleep(0.5)
 
             except KeyboardInterrupt:
                 logger.info("Shutdown requested")
