@@ -33,7 +33,7 @@ This is a `uv` monorepo workspace. All paths are relative to the repo root:
 ## Constraints
 
 - Time: use `pendulum` only. Never `datetime`, `time`, `calendar`.
-- Logging: `logging.getLogger(__name__)`. Never `print()`.
+- Logging: `from shared.logger import logging_func; logger = logging_func(__name__)`. Never bare `logging.getLogger(__name__)`. Never `print()` (use `logger.info()` instead).
 - No comments in generated code.
 - No hardcoded paths. Use config or constants for paths.
 

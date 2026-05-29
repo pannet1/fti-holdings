@@ -194,6 +194,23 @@ def build_prompt(persona: str, target: Path, target_files: dict, task: str, erro
     parts.append("## Task\n" + task)
     parts.append("")
     parts.append(
+        "## Compliance Requirements (MANDATORY)\n"
+        "Your output MUST follow these rules EXACTLY:\n"
+        "1. Include ALL 4 files: Schema.py, Handler.py, Controller.py, Tests.py — every time.\n"
+        "2. Logging: use `from shared.logger import logging_func; logger = logging_func(__name__)` — never `logging.getLogger(__name__)`.\n"
+        "3. Zero comments in code (no `#` lines except `# noqa`).\n"
+        "4. No print() statements (use logger instead).\n"
+        "5. PEP 484 type annotations on ALL function signatures and module-level variables.\n"
+        "6. PEP 8: max 120 chars per line (E501), 2 blank lines between top-level definitions (E302).\n"
+        "7. Schema.py: class inherits from pydantic.BaseModel (v2).\n"
+        "8. Handler.py: class with methods, module-level logger.\n"
+        "9. Controller.py: imports Handler + Schema, class with handle() method.\n"
+        "10. Tests.py: class with test_ methods (pytest style).\n"
+        "11. No emoji characters.\n"
+        "12. All imports used — no unused imports.\n"
+        "13. Use pendulum for time (never datetime/time/calendar).\n"
+    )
+    parts.append(
         "## Output Format (CRITICAL)\n"
         "Output ONLY a single JSON object. No markdown, no explanation, no extra text.\n"
         'Keys are filenames, values are the full file contents. All 4 files are required.\n'
@@ -201,9 +218,9 @@ def build_prompt(persona: str, target: Path, target_files: dict, task: str, erro
         '```json\n'
         '{\n'
         '  "Schema.py": "from pydantic import BaseModel...",\n'
-        '  "Handler.py": "import logging\\nlogger = logging.getLogger(__name__)...",\n'
+        '  "Handler.py": "from shared.logger import logging_func\\\\nlogger = logging_func(__name__)...",\n'
         '  "Controller.py": "from .Handler import...",\n'
-        '  "Tests.py": "import pytest\\nclass Test...\\n    def test_...:"\n'
+        '  "Tests.py": "import pytest\\\\nclass Test...\\\\n    def test_...:"\n'
         '}\n'
         '```\n'
         "CRITICAL: Every key must end in `.py`. Every value must be valid Python code.\n"
@@ -329,8 +346,11 @@ def validate_code_standards(written: list[Path]) -> list[str]:
             continue
         if p.name == "Tests.py":
             continue
-        if "logging.getLogger" not in text:
-            violations.append(f"{p.name}: missing `logging.getLogger(__name__)`")
+        if "from shared.logger import logging_func" not in text:
+            if "logging.getLogger" in text:
+                violations.append(f"{p.name}: use `from shared.logger import logging_func` instead of `logging.getLogger(__name__)`")
+            else:
+                violations.append(f"{p.name}: missing `from shared.logger import logging_func`")
     return violations
 
 
