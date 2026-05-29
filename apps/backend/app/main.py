@@ -247,8 +247,8 @@ def main() -> None:
                         ltp = quotes.get(s._tradingsymbol, 0)
                         avg = s._avg_price
                         target = avg * (1.0 + s._perc) if avg else 0
-                        status_line = f"{s._tradingsymbol} | avg: {avg:.2f} | +5% target: {target:.2f} | ltp: {ltp}"
-                        logger.info(status_line)
+                        line = f"{s._tradingsymbol} | avg: {avg:.2f} | +5% target: {target:.2f} | ltp: {ltp}"
+                        print(line, flush=True)
                     last_status = now
 
                 if is_backtest and stream:
