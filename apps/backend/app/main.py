@@ -266,6 +266,23 @@ def main() -> None:
         backtest_tick = 0
         last_tick = False
         last_loop = time.monotonic()
+
+        start_time = settings["global"].get("start", "09:15")
+        stop_time = settings["global"].get("stop", "15:20")
+        if not is_backtest:
+            now_str = datetime.now().strftime("%H:%M")
+            if now_str < start_time:
+                wait_sec = (
+                    pdlm.now().set(hour=int(start_time[:2]), minute=int(start_time[3:5]), second=0) -
+                    pdlm.now()
+                ).total_seconds()
+                if wait_sec > 0:
+                    logger.info(f"Market opens at {start_time}. Waiting {wait_sec:.0f}s...")
+                    time.sleep(wait_sec)
+            elif now_str >= stop_time:
+                logger.info(f"Market closed at {stop_time}. Exiting.")
+                return
+
         while True:
             try:
                 quotes = (
@@ -324,6 +341,10 @@ def main() -> None:
                     break
 
                 if not is_backtest:
+                    now_str = datetime.now().strftime("%H:%M")
+                    if now_str >= stop_time:
+                        logger.info(f"Market closed at {stop_time}. Exiting.")
+                        break
                     time.sleep(0.5)
 
             except KeyboardInterrupt:
