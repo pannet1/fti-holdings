@@ -24,10 +24,12 @@ class Rachet:
         self._perc: float = O_SETG.get("perc", 0.05)
         self._start_time = O_SETG.get("start_time", "09:00")
         self._stop_time = O_SETG.get("stop_time", "15:30")
+        start_h, start_m = int(self._start_time[:2]), int(self._start_time[3:5])
+        stop_h, stop_m = int(self._stop_time[:2]), int(self._stop_time[3:5])
         self._candle = ManageCandleHandler(
+            start_time=pdlm.now().set(hour=start_h, minute=start_m, second=0),
+            stop_time=pdlm.now().set(hour=stop_h, minute=stop_m, second=0),
             minute=O_SETG["candle"],
-            start=self._start_time,
-            stop=self._stop_time,
         )
         self._holdings: List[HoldingsRow] = []
         self._total_qty: int = 0
