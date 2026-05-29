@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LOG_DIR="$SCRIPT_DIR/logs"
+DATA_DIR="$SCRIPT_DIR/data"
 
 if [[ "${1:-}" == "--install" ]]; then
     CRON_LINE="15 9 * * 1-5 $SCRIPT_DIR/cron.sh"
@@ -11,8 +11,8 @@ if [[ "${1:-}" == "--install" ]]; then
     exit 0
 fi
 
-mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/tmux-$(date +\%Y\%m\%d).log"
+mkdir -p "$DATA_DIR"
+LOG_FILE="$DATA_DIR/cron.log"
 export PATH="$HOME/.cargo/bin:$PATH"
 cd "$SCRIPT_DIR"
 echo "=== $(date) ===" >> "$LOG_FILE"
