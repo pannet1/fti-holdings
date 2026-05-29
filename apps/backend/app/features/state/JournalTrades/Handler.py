@@ -18,11 +18,14 @@ class JournalTradesHandler:
         else:
             self._filepath = base / "trades.csv"
 
-    def journal_trade(self, row: HoldingsRow) -> None:
-        write_header = not self._filepath.exists()
+    def ensure(self) -> None:
         self._filepath.parent.mkdir(parents=True, exist_ok=True)
+        if not self._filepath.exists():
+            with open(self._filepath, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
+                writer.writeheader()
+
+    def journal_trade(self, row: HoldingsRow) -> None:
         with open(self._filepath, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-            if write_header:
-                writer.writeheader()
             writer.writerow(row.model_dump())

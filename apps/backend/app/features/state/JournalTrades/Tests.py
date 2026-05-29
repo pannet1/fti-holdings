@@ -7,6 +7,7 @@ class TestJournalTradesHandler:
 
     def test_journal_trade_creates_file_with_header(self, tmp_path):
         handler = JournalTradesHandler(data_dir=str(tmp_path))
+        handler.ensure()
         row = HoldingsRow(
             datetime="2024-01-15 10:30:00",
             exchange="BSE",
@@ -24,6 +25,7 @@ class TestJournalTradesHandler:
 
     def test_journal_trade_appends_subsequent_rows(self, tmp_path):
         handler = JournalTradesHandler(data_dir=str(tmp_path))
+        handler.ensure()
         row1 = HoldingsRow(
             datetime="2024-01-15 10:30:00",
             exchange="BSE",

@@ -18,6 +18,7 @@ class TestTrackHoldingsHandler:
 
     def test_add_holding_and_read_all(self, temp_data_dir):
         handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
+        handler.ensure()
         row = HoldingsRow(
             datetime="2023-01-01",
             exchange="NSE",
@@ -34,6 +35,7 @@ class TestTrackHoldingsHandler:
 
     def test_read_by_symbol(self, temp_data_dir):
         handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
+        handler.ensure()
         row1 = HoldingsRow(
             datetime="2023-01-01",
             exchange="NSE",
@@ -65,6 +67,7 @@ class TestTrackHoldingsHandler:
 
     def test_paper_mode_uses_different_path(self, temp_data_dir):
         handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=True)
+        handler.ensure()
         row = HoldingsRow(
             datetime="2023-01-01",
             exchange="NSE",
@@ -81,6 +84,7 @@ class TestTrackHoldingsHandler:
 
     def test_write_all_overwrites_file(self, temp_data_dir):
         handler = TrackHoldingsHandler(data_dir=temp_data_dir, paper=False)
+        handler.ensure()
         row1 = HoldingsRow(
             datetime="2023-01-01",
             exchange="NSE",

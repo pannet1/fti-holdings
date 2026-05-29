@@ -91,11 +91,12 @@ def route_signal(
         )
         if signal["action"] == "BUY":
             holdings_tracker.add_holding(row)
-            trades_journal.journal_trade(row)
         elif signal["action"] == "SELL":
-            holdings_tracker.remove_holding(
+            removed = holdings_tracker.remove_holding(
                 signal["tradingsymbol"], int(signal["quantity"])
             )
+            for buy_row in removed:
+                trades_journal.journal_trade(buy_row)
             trades_journal.journal_trade(row)
 
 
@@ -144,6 +145,8 @@ def main() -> None:
             order_mgr = ManageOrderHandler()
         holdings_tracker = TrackHoldingsHandler(data_dir=str(DATA_DIR), paper=bool(is_paper))
         trades_journal = JournalTradesHandler(data_dir=str(DATA_DIR), paper=bool(is_paper))
+        holdings_tracker.ensure()
+        trades_journal.ensure()
 
         run_file = DATA_DIR / "run.txt"
         if run_file.exists():
@@ -240,8 +243,12 @@ def main() -> None:
 
                 now = time.monotonic()
                 if now - last_status >= status_interval:
-                    ltp_str = ", ".join(f"{s._tradingsymbol}: {quotes.get(s._tradingsymbol, '-')}" for s in strategies)
-                    logger.info(f"Status — strategies: {len(strategies)}, LTP: {ltp_str}")
+                    for s in strategies:
+                        ltp = quotes.get(s._tradingsymbol, 0)
+                        avg = s._avg_price
+                        target = avg * (1.0 + s._perc) if avg else 0
+                        status_line = f"{s._tradingsymbol} | avg: {avg:.2f} | +5% target: {target:.2f} | ltp: {ltp}"
+                        logger.info(status_line)
                     last_status = now
 
                 if is_backtest and stream:

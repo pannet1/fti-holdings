@@ -18,4 +18,5 @@ class JournalTradesController:
         else:
             data_dir = self._base_data_dir
         handler = JournalTradesHandler(data_dir=data_dir)
+        handler.ensure()
         handler.journal_trade(row)

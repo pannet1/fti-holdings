@@ -19,6 +19,13 @@ class TrackHoldingsHandler:
         else:
             self._filepath = base / "holdings.csv"
 
+    def ensure(self) -> None:
+        self._filepath.parent.mkdir(parents=True, exist_ok=True)
+        if not self._filepath.exists():
+            with open(self._filepath, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
+                writer.writeheader()
+
     def read_all(self) -> List[HoldingsRow]:
         if not self._filepath.exists():
             return []
@@ -30,12 +37,8 @@ class TrackHoldingsHandler:
         return [row for row in self.read_all() if row.tradingsymbol == tradingsymbol]
 
     def add_holding(self, row: HoldingsRow) -> None:
-        write_header = not self._filepath.exists()
-        self._filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(self._filepath, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-            if write_header:
-                writer.writeheader()
             writer.writerow(row.model_dump())
 
     def write_all(self, rows: List[HoldingsRow]) -> None:
@@ -46,21 +49,39 @@ class TrackHoldingsHandler:
             for row in rows:
                 writer.writerow(row.model_dump())
 
-    def remove_holding(self, tradingsymbol: str, quantity: int) -> None:
+    def remove_holding(self, tradingsymbol: str, quantity: int) -> List[HoldingsRow]:
         if not self._filepath.exists():
-            return
+            return []
         rows = self.read_all()
         remaining = quantity
+        removed: List[HoldingsRow] = []
         updated: List[HoldingsRow] = []
         for row in rows:
             if row.tradingsymbol == tradingsymbol and remaining > 0:
-                if row.quantity <= remaining:
-                    remaining -= row.quantity
-                    continue
-                else:
-                    row.quantity -= remaining
-                    remaining = 0
-                    updated.append(row)
+                remove_qty = min(row.quantity, remaining)
+                removed.append(HoldingsRow(
+                    datetime=row.datetime,
+                    exchange=row.exchange,
+                    tradingsymbol=row.tradingsymbol,
+                    side=row.side,
+                    avg_price=row.avg_price,
+                    quantity=remove_qty,
+                    strategy=row.strategy,
+                    multiplier=row.multiplier,
+                ))
+                remaining -= remove_qty
+                if row.quantity > remove_qty:
+                    updated.append(HoldingsRow(
+                        datetime=row.datetime,
+                        exchange=row.exchange,
+                        tradingsymbol=row.tradingsymbol,
+                        side=row.side,
+                        avg_price=row.avg_price,
+                        quantity=row.quantity - remove_qty,
+                        strategy=row.strategy,
+                        multiplier=row.multiplier,
+                    ))
             else:
                 updated.append(row)
         self.write_all(updated)
+        return removed
