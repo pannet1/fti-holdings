@@ -1,1 +1,1 @@
-/home/pannet1/.claude/CLAUDE.md
+/home/pannet1/.agents/CONSTITUTION.md

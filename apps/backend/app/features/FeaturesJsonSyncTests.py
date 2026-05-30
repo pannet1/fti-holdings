@@ -6,7 +6,9 @@ logger = logging.getLogger(__name__)
 
 _HERE = Path(__file__).resolve().parent
 _REPO = _HERE.parents[3]
-_FEATURES_JSON = _REPO / ".agents" / "features.json"
+_FEATURES_JSON = _REPO / ".features.json"
+if not _FEATURES_JSON.exists():
+    _FEATURES_JSON = _REPO / ".agents" / "features.json"
 
 
 def _load_features_json() -> dict:
