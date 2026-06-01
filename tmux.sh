@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 find . -type d -name "__pycache__" -print0 | xargs -0 rm -rf
 sess="ratchet"
 
@@ -21,7 +21,7 @@ else
 	echo "Pulling latest code"
 	git pull --ff-only
 	if [[ ! -f .venv/bin/python ]]; then
-		uv venv --python 3.10
+		uv venv --python 3.13 --python-preference only-managed
 	fi
 	echo "Removing stale per-package lockfiles to force fresh resolve..."
 	rm -f apps/backend/uv.lock packages/*/uv.lock

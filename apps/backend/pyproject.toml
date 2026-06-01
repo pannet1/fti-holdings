@@ -2,7 +2,7 @@
 name = "app"
 version = "0.1.0"
 description = "Ratchet investing strategy — two-book with Fibonacci sizing"
-requires-python = ">=3.10, <3.11"
+requires-python = ">=3.13"
 dependencies = [
     "broker-ai",
     "pandas>=2",

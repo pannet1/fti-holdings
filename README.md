@@ -15,6 +15,10 @@ Base unit = quantity of the first buy
 
 - No SELL-first-then-BUY on the same day. If a SELL occurs, same-day re-entry is blocked.
 - The same-day SELL guard is persisted via trades.csv — survives restarts.
+- On startup, broker holdings are compared against holdings.csv. `_removable = True` is set when any of:
+  - Symbol not found in broker holdings at all
+  - `csv_qty != broker_qty` (prevents selling uncredited shares or operating with stale state)
+  The strategy stays excluded for the entire session.
 
 ## Buy Rules
 

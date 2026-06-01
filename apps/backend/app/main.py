@@ -52,6 +52,7 @@ def build_strategies(tracker: Any, global_settings: dict, broker_session: Any = 
         ]
         if candidates:
             cfg = dict(candidates[0])
+        logger.info(f"Config: strategy={cfg.get('strategy')} base={cfg.get('base')} exchange={cfg.get('exchange')} qty={cfg.get('quantity')}")
         cfg.setdefault("candle", global_settings["candle"])
         cfg.setdefault("paper", global_settings.get("paper", 0))
         if "tradingsymbol" not in cfg and "symbol" in cfg:
@@ -59,28 +60,38 @@ def build_strategies(tracker: Any, global_settings: dict, broker_session: Any = 
         try:
             strat = Rachet(data_dir=str(DATA_DIR), **cfg)
             if strat._removable:
-                logger.info(f"Skipping {strat.strategy} for {strat._tradingsymbol} — already sold today")
+                logger.info(f"SKIP: {strat._tradingsymbol} — already sold today (last_sell_date in trades.csv)")
                 continue
             if broker_session and hasattr(broker_session, "holdings"):
                 holdings_api = broker_session.holdings
+                logger.info(f"Broker holdings response: {json.dumps(holdings_api)}")
                 if holdings_api:
                     broker_qty = 0
+                    matched_tsym = None
                     for h in holdings_api:
                         info = h.get("instrument_info", [])
                         if isinstance(info, list):
                             for item in info:
                                 if item.get("tsym") == strat._tradingsymbol:
-                                    broker_qty = int(h.get("npoadqty", 0))
+                                    matched_tsym = item.get("tsym")
+                                    broker_qty = int(h.get("quantity", 0))
                                     break
+                    if matched_tsym is None:
+                        logger.info(f"SKIP: {strat._tradingsymbol} — not found in broker holdings instrument_info")
+                        strat._removable = True
+                        continue
                     rows = TrackHoldingsHandler(data_dir=str(DATA_DIR), paper=bool(cfg.get("paper", 0))).read_by_symbol(strat._tradingsymbol)
                     csv_qty = sum(r.quantity for r in rows) if rows else 0
+                    logger.info(f"Holdings check: csv={csv_qty} broker_qty={broker_qty} symbol={strat._tradingsymbol}")
                     if csv_qty != broker_qty:
-                        logger.info(f"holdings mismatch for {strat._tradingsymbol}: csv={csv_qty} broker={broker_qty}")
+                        logger.info(f"SKIP: {strat._tradingsymbol} — holdings mismatch: csv={csv_qty} broker={broker_qty}")
+                        strat._removable = True
                         continue
             instances.append(strat)
             logger.info(f"Loaded strategy {strat.strategy} for {strat._tradingsymbol}")
         except Exception as e:
             logger.error(f"Failed to load strategy: {e}")
+            print_exc()
     return instances
 
 
@@ -184,6 +195,8 @@ def main() -> None:
         if run_file.exists():
             run_file.unlink()
         strategies = build_strategies(tracker, settings["global"], broker_session)
+        if not strategies:
+            logger.info("No active strategies. Check SKIP messages above for reasons.")
         logger.info(f"Active strategies: {len(strategies)}")
 
         if strategies:
@@ -315,12 +328,18 @@ def main() -> None:
                 now = time.monotonic()
                 loop_ms = (now - last_loop) * 1000
                 last_loop = now
+                if not strategies:
+                    now_str = datetime.now().strftime("%H:%M:%S")
+                    heartbeat = "." * (int(loop_ms / 500) % 4)
+                    print(f"\r{now_str} waiting{heartbeat}  ", end="", flush=True)
                 for s in strategies:
                     ltp = quotes.get(s._tradingsymbol, 0)
                     avg = s._avg_price
                     target = avg * (1.0 + s._perc) if avg else 0
-                    line = f"{s._tradingsymbol} | avg: {avg:.2f} | +5% target: {target:.2f} | ltp: {ltp} | loop: {loop_ms:.0f}ms"
-                    print(line, flush=True)
+                    qty = s._total_qty
+                    pnl = (float(ltp) - avg) * qty if avg and ltp else 0
+                    line = f"\r{s._tradingsymbol} | qty: {qty} | avg: {avg:.2f} | +5% target: {target:.2f} | ltp: {ltp} | P&L: {pnl:.2f} | loop: {loop_ms:.0f}ms"
+                    print(line, end="", flush=True)
                     total_loop_time = 0.0
 
                 if is_backtest and stream:
